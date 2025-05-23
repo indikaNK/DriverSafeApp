@@ -60,4 +60,6 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.core.ktx.v1131)
     implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation(libs.material)
+
 }
