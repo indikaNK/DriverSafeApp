@@ -1,4 +1,4 @@
-# DriverSafeApp
+# DriverSafeApp ✔🚗
 An Android application for accident prevention using real-time risk assessment.
 
 ## Features
