@@ -61,5 +61,8 @@ dependencies {
     implementation(libs.androidx.core.ktx.v1131)
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation(libs.material)
+    //google maps API
+    implementation("com.google.android.gms:play-services-maps:19.0.0")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
 
 }

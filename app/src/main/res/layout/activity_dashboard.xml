@@ -2,46 +2,63 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#CCE7EDEB"
     android:padding="16dp">
 
     <!-- Settings Icon Button (Top Left) -->
     <ImageButton
         android:id="@+id/settingsIconButton"
-        android:layout_width="64dp"
-        android:layout_height="58dp"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
         android:layout_alignParentStart="true"
         android:layout_alignParentTop="true"
-        android:layout_marginStart="0dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Settings"
-        android:padding="8dp"
-        android:scaleType="fitCenter"
         android:src="@drawable/baseline_settings_24"
-        android:tint="#BC4BCE" />
+        android:contentDescription="Settings"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:scaleType="fitCenter"
+        android:padding="8dp"/>
 
-    <!-- Centered Content -->
+    <!-- Map View -->
+    <com.google.android.gms.maps.MapView
+        android:id="@+id/mapView"
+        android:layout_width="389dp"
+        android:layout_height="408dp"
+        android:layout_below="@id/settingsIconButton"
+        android:layout_marginTop="11dp" />
+
+    <!-- Location and Speed Info -->
     <LinearLayout
+        android:id="@+id/infoLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
-        android:gravity="center"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:layout_below="@id/mapView"
+        android:layout_marginTop="16dp"
+        android:padding="8dp">
 
         <TextView
+            android:id="@+id/locationText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            android:text="Welcome to DriverSafe Dashboard!"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:text="Location: Not available"
+            android:textSize="16sp"/>
 
-        <Button
-            android:id="@+id/startJourneyButton"
-            android:layout_width="match_parent"
-            android:layout_height="77dp"
-            android:text="Let the Journey Begin!" />
+        <TextView
+            android:id="@+id/speedText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Speed: Not available"
+            android:textSize="16sp"
+            android:layout_marginTop="8dp"/>
 
     </LinearLayout>
+
+    <!--  Start Journey Button -->
+    <Button
+        android:id="@+id/startJourneyButton"
+        android:layout_width="match_parent"
+        android:layout_height="77dp"
+        android:text="Let the Journey Begin!"
+        android:layout_below="@id/infoLayout"
+        android:layout_marginTop="16dp"/>
 
 </RelativeLayout>
