@@ -60,12 +60,12 @@
 
     </LinearLayout>
 
-    <!--  Start Journey Button -->
+    <!--  Pick route Button -->
     <Button
-        android:id="@+id/startJourneyButton"
+        android:id="@+id/pickRouteButton"
         android:layout_width="match_parent"
         android:layout_height="77dp"
-        android:text="Let the Journey Begin!"
+        android:text="set destination"
         android:layout_below="@id/infoLayout"
         android:layout_marginTop="16dp"/>
 

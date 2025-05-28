@@ -40,6 +40,7 @@
         <activity android:name=".DashboardActivity" />
         <activity android:name=".SettingsActivity" />
         <activity android:name=".RegisterActivity" />
+        <activity android:name=".RouteInputActivity" />
     </application>
 
 </manifest>

@@ -68,8 +68,14 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation(libs.material)
     //google maps API
+
     implementation("com.google.android.gms:play-services-maps:19.0.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation(libs.google.maps.utils)  // Add this for PolyUtil
+    implementation(libs.google.maps)
+    implementation(libs.google.location)
+
+
     // Retrofit for OpenWeatherMap API
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")

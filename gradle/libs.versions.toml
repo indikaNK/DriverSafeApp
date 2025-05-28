@@ -14,7 +14,10 @@ material = "1.12.0"
 googleGmsGoogleServices = "4.4.2"
 firebaseFirestore = "25.1.4"
 firebaseAuthKtx = "23.2.1"
-
+google-maps = "19.0.0"
+google-location = "21.3.0"
+google-maps-utils = "2.4.0"
+retrofit = "2.9.0"  # Add for OpenWeatherMap and Directions API
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -36,6 +39,12 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 material = { module = "com.google.android.material:material", version.ref = "material" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore", version.ref = "firebaseFirestore" }
 firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx", version.ref = "firebaseAuthKtx" }
+google-maps = { module = "com.google.android.gms:play-services-maps", version.ref = "google-maps" }
+google-location = { module = "com.google.android.gms:play-services-location", version.ref = "google-location" }
+google-maps-utils = { module = "com.google.maps.android:android-maps-utils", version.ref = "google-maps-utils" }  # Add this
+retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
+retrofit-converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "retrofit" }
+
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
