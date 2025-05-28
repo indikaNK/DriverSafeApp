@@ -1,8 +1,12 @@
-plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
-}
+
+        plugins {
+            alias(libs.plugins.android.application)
+            alias(libs.plugins.kotlin.android)
+            alias(libs.plugins.kotlin.compose)
+            alias(libs.plugins.google.gms.google.services)
+
+
+        }
 
 android {
     namespace = "com.example.driversafeapp_application"
@@ -35,7 +39,7 @@ android {
         jvmTarget = "11"
     }
     buildFeatures {
-        compose = true
+        compose = false
     }
 }
 
@@ -50,6 +54,8 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.appcompat)
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.auth.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -67,5 +73,9 @@ dependencies {
     // Retrofit for OpenWeatherMap API
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+
+
+
+
 
 }

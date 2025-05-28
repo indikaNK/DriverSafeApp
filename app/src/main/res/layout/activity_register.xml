@@ -1,10 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:padding="16dp"
     android:gravity="center">
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/usernameField"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Username"
+            android:inputType="textPersonName"/>
+    </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
@@ -31,15 +43,16 @@
     </com.google.android.material.textfield.TextInputLayout>
 
     <Button
-        android:id="@+id/loginButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Login"/>
-
-    <Button
         android:id="@+id/registerButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="new User ? sign Up here"/>
+        android:text="Register"
+        android:layout_marginBottom="8dp"/>
+
+    <Button
+        android:id="@+id/backToLoginButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Back to Login"/>
 
 </LinearLayout>
