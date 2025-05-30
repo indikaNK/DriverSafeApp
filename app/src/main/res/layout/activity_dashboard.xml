@@ -18,6 +18,18 @@
         android:padding="8dp"/>
 
     <!-- Map View -->
+
+    <TextView
+        android:id="@+id/usernameText"
+        android:layout_width="160dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="50dp"
+        android:layout_marginTop="16dp"
+        android:text="Welcome To Drivasafe, User"
+        android:textColor="@color/purple_500"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
     <com.google.android.gms.maps.MapView
         android:id="@+id/mapView"
         android:layout_width="389dp"

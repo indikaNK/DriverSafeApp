@@ -80,6 +80,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     private  var googleMap: GoogleMap? = null
     private lateinit var locationText: TextView
     private lateinit var speedText: TextView
+    private lateinit var usernameText: TextView // Added TextView for username
 
     private val locationPermissionCode = 100
     private var currentLocation: LatLng? = null
@@ -357,6 +358,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         locationText = findViewById(R.id.locationText)
         speedText = findViewById(R.id.speedText)
         weatherText = findViewById(R.id.weatherText)
+        usernameText = findViewById(R.id.usernameText) // Initialize the username TextView
 
 
 
@@ -394,6 +396,9 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
 
+        // Fetch and display the username
+        fetchAndDisplayUsername()
+
         // Restore state if available
         if (savedInstanceState != null) {
             val lat = savedInstanceState.getDouble("currentLat", -1.0)
@@ -412,6 +417,39 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
     }
 
+    // Function to fetch the username from Firestore and display it
+    private fun fetchAndDisplayUsername() {
+        val user = auth.currentUser
+        if (user == null) {
+            Log.w("DashboardActivity", "No user is currently signed in")
+            usernameText.text = "Welcome, Guest"
+            Toast.makeText(this, "Please sign in to continue", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val userId = user.uid
+        db.collection("users").document(userId).get()
+            .addOnSuccessListener { document ->
+                if (document != null && document.exists()) {
+                    val username = document.getString("username")
+                    if (username != null) {
+                        usernameText.text = "Welcome To Drivesafe, $username"
+                        Log.d("DashboardActivity", "Successfully fetched username: $username")
+                    } else {
+                        Log.w("DashboardActivity", "Username field is missing in Firestore document for user: $userId")
+                        usernameText.text = "Welcome, User"
+                    }
+                } else {
+                    Log.w("DashboardActivity", "No Firestore document found for user: $userId")
+                    usernameText.text = "Welcome, User"
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e("DashboardActivity", "Failed to fetch username from Firestore: ${e.message}", e)
+                usernameText.text = "Welcome, User"
+                Toast.makeText(this, "Failed to fetch username: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
 //saves currentLocation’s latitude and longitude in a Bundle before the activity is destroyed
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
