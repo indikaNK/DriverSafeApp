@@ -79,7 +79,12 @@
             android:textColor="@android:color/white"
             android:enabled="false" /> <!-- Disabled until route is calculated -->
 
+
+
+
     </LinearLayout>
+    
+
 
     <!--  Pick route Button -->
     <Button
@@ -89,5 +94,7 @@
         android:text="set destination"
         android:layout_below="@id/infoLayout"
         android:layout_marginTop="16dp"/>
+
+
 
 </RelativeLayout>

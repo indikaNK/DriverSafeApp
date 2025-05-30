@@ -13,7 +13,6 @@ import com.google.android.material.textfield.TextInputEditText
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
-import com.example.driversafeapp_application.api.Location
 
 class RouteInputActivity : AppCompatActivity() {
     private lateinit var geoCodingApiService: GeoCodingApiService
@@ -28,7 +27,7 @@ class RouteInputActivity : AppCompatActivity() {
 
         // Locate UI elements
         val destinationField = findViewById<TextInputEditText>(R.id.destinationField)
-        val startJourneyButton = findViewById<Button>(R.id.startJourneyButton)
+        val startJourneyButton = findViewById<Button>(R.id.pickDestination)
 
         // Start Journey Button
         startJourneyButton.setOnClickListener {
