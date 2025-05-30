@@ -61,7 +61,6 @@ import com.example.driversafeapp_application.api.WeatherApiService
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.maps.model.Marker
 import retrofit2.converter.gson.GsonConverterFactory
-import java.util.Locale
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -110,7 +109,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var auth: FirebaseAuth
     private lateinit var db: FirebaseFirestore
 
-    // Better alerts Blackspot Proximity
+    //alerts Blackspot Proximity
     private lateinit var locationCallback: LocationCallback
     private var blackspots: List<Blackspot> = emptyList()
     private var lastAlertedBlackspot: String? = null // To prevent repeated alerts for the same blackspot
@@ -119,6 +118,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     private val VIBRATION_DURATION = 500L // Vibration duration in milliseconds
     private lateinit var vibrator: Vibrator
     private lateinit var mediaPlayer: MediaPlayer
+    private var isProximityNotificationsEnabled: Boolean = true // Track proximity notifications state
 
     private var polylinePoints: List<LatLng> = emptyList() // Store polyline points for simulation
     private var isSimulating = false // Track if simulation is in progress
@@ -127,7 +127,10 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     private var currentLocationMarker: Marker? = null // Marker for current location
     private var markerIconBitmap: Bitmap? = null // Store the marker icon Bitmap to prevent garbage collection
 
+
+
     data class Blackspot(val id: String, val location: LatLng, val description: String)
+
 
     // Utility function to convert a drawable resource to a Bitmap
     private fun drawableToBitmap(context: Context, drawableId: Int): Bitmap? {
@@ -243,12 +246,12 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Initialize Vibrator and MediaPlayer
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        mediaPlayer = MediaPlayer.create(this, R.raw.ding) // Use a default system alert sound
+        mediaPlayer = MediaPlayer.create(this, R.raw.ring2) // Use a default system alert sound
         mediaPlayer.setOnCompletionListener { mp ->
             try {
                 mp.stop()
                 mp.reset()
-                mp.setDataSource(this@DashboardActivity, android.net.Uri.parse("android.resource://${packageName}/${R.raw.ding}"))
+                mp.setDataSource(this@DashboardActivity, android.net.Uri.parse("android.resource://${packageName}/${R.raw.ring2}"))
                 mp.prepare()
             } catch (e: Exception) {
                 Log.e("DashboardActivity", "Error resetting MediaPlayer after completion: ${e.message}", e)
@@ -563,6 +566,12 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun checkProximityToBlackspots(userLocation: LatLng) {
+        // Check if proximity notifications are enabled
+        if (!isProximityNotificationsEnabled) {
+            Log.d("DashboardActivity", "Proximity notifications are disabled, skipping blackspot check")
+            return
+        }
+
         blackspots.forEach { blackspot ->
             val distance = calculateDistance(userLocation, blackspot.location)
             if (distance <= ALERT_DISTANCE_THRESHOLD && lastAlertedBlackspot != blackspot.id) {
@@ -584,6 +593,24 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
                 // Play alert sound
                 try {
+                    if (!mediaPlayer.isPlaying) {
+                        mediaPlayer.start()
+                    }
+                } catch (e: IllegalStateException) {
+                    Log.e("DashboardActivity", "Error playing alert sound due to illegal state: ${e.message}", e)
+                    // Reinitialize MediaPlayer if it's in an illegal state
+                    mediaPlayer.release()
+                    mediaPlayer = MediaPlayer.create(this, R.raw.ring2)
+                    mediaPlayer.setOnCompletionListener { mp ->
+                        try {
+                            mp.stop()
+                            mp.reset()
+                            mp.setDataSource(this@DashboardActivity, android.net.Uri.parse("android.resource://${packageName}/${R.raw.ring2}"))
+                            mp.prepare()
+                        } catch (e: Exception) {
+                            Log.e("DashboardActivity", "Error resetting MediaPlayer after completion: ${e.message}", e)
+                        }
+                    }
                     mediaPlayer.start()
                 } catch (e: Exception) {
                     Log.e("DashboardActivity", "Error playing alert sound: ${e.message}", e)
@@ -961,6 +988,20 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onResume() {
         super.onResume()
         mapView.onResume()
+        // Prepare MediaPlayer for playback
+        try {
+            if (!mediaPlayer.isPlaying) {
+                mediaPlayer.reset()
+                mediaPlayer.setDataSource(this, android.net.Uri.parse("android.resource://${packageName}/${R.raw.ring2}"))
+                mediaPlayer.prepare()
+            }
+        } catch (e: Exception) {
+            Log.e("DashboardActivity", "Error preparing MediaPlayer in onResume: ${e.message}", e)
+        }
+        // Reload the proximity notifications setting in case it changed
+        val sharedPreferences = getSharedPreferences("DriverSafePrefs", Context.MODE_PRIVATE)
+        isProximityNotificationsEnabled = sharedPreferences.getBoolean("proximity_notifications_enabled", true)
+        Log.d("DashboardActivity", "Proximity notifications enabled on resume: $isProximityNotificationsEnabled")
     }
     override fun onPause() {
         super.onPause()

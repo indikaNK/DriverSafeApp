@@ -1,8 +1,11 @@
 package com.example.driversafeapp_application
 
+import android.content.Context
+
 import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.Switch
 import android.widget.Toast
@@ -15,6 +18,8 @@ class SettingsActivity : AppCompatActivity() {
     //non null property :: user preferred value store
     private lateinit var sharedPreferences: SharedPreferences
     private lateinit var auth: FirebaseAuth
+    private lateinit var proximityNotificationsSwitch: Switch
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,11 +46,20 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         // Notifications Switch
-        val notificationsSwitch = findViewById<Switch>(R.id.notificationsSwitch)
-        notificationsSwitch.isChecked = sharedPreferences.getBoolean("notifications", true)
-        notificationsSwitch.setOnCheckedChangeListener { _, isChecked ->
-            sharedPreferences.edit().putBoolean("notifications", isChecked).apply()
-            Toast.makeText(this, if (isChecked) "Notifications Enabled" else "Notifications Disabled", Toast.LENGTH_SHORT).show()
+        proximityNotificationsSwitch = findViewById(R.id.notificationsSwitch)
+
+        // Load the current state from SharedPreferences
+        val sharedPreferences = getSharedPreferences("DriverSafePrefs", Context.MODE_PRIVATE)
+        val isProximityNotificationsEnabled = sharedPreferences.getBoolean("proximity_notifications_enabled", true)
+        proximityNotificationsSwitch.isChecked = isProximityNotificationsEnabled
+
+        // Set up the switch listener to save the state
+        proximityNotificationsSwitch.setOnCheckedChangeListener { _, isChecked ->
+            with(sharedPreferences.edit()) {
+                putBoolean("proximity_notifications_enabled", isChecked)
+                apply()
+            }
+            Log.d("SettingsActivity", "Proximity notifications enabled: $isChecked")
         }
 
         // GPS Location Data Access Switch
