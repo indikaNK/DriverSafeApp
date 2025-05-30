@@ -1,8 +1,5 @@
-package com.example.driversafeapp_application
+package com.example.driversafeapp_application.api
 
-// api service that calls openweather map using retrofit
-
-// a get request to call the api service
 import retrofit2.Call
 import retrofit2.http.GET
 import retrofit2.http.Query
@@ -16,4 +13,3 @@ interface WeatherApiService {
         @Query("appid") apiKey: String
     ): Call<WeatherResponse>
 }
-
