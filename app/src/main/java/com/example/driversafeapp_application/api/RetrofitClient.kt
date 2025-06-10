@@ -7,6 +7,7 @@ object RetrofitClient {
     private const val WEATHER_BASE_URL = "https://api.openweathermap.org"
     private const val DIRECTIONS_BASE_URL = "https://maps.googleapis.com/maps/api/"
     private const val GEOCODING_BASE_URL = "https://maps.googleapis.com/maps/api/"
+    private const val BACKEND_BASE_URL = "https://b1b6-2402-d000-8110-1def-91ea-c2bb-80a-5164.ngrok-free.app/" // Replace with  URL o
 
     private val weatherRetrofit = Retrofit.Builder()
         .baseUrl(WEATHER_BASE_URL)
@@ -23,6 +24,11 @@ object RetrofitClient {
         .addConverterFactory(GsonConverterFactory.create())
         .build()
 
+    private val backendRetrofit: Retrofit = Retrofit.Builder()
+        .baseUrl(BACKEND_BASE_URL)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
     val weatherApiService: WeatherApiService by lazy {
         weatherRetrofit.create(WeatherApiService::class.java)
     }
@@ -32,4 +38,7 @@ object RetrofitClient {
     val geoCodingApiService: GeoCodingApiService by lazy {
         geocodingRetrofit.create(GeoCodingApiService::class.java)
     }
+
+    val backendApiService: BackendApiService = backendRetrofit.create(BackendApiService::class.java)
+
 }

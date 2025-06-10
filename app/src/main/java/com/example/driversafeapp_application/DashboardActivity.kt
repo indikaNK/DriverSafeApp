@@ -1,9 +1,5 @@
 package com.example.driversafeapp_application
-
-
-
 //maps google
-
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -40,16 +36,18 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.core.graphics.drawable.DrawableCompat
+import com.example.driversafeapp_application.api.BackendApiService
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationResult
-
+//Firebase
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-
+//Retrofit
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -57,7 +55,7 @@ import retrofit2.Retrofit
 import com.example.driversafeapp_application.api.DirectionsApiService
 import com.example.driversafeapp_application.api.RetrofitClient
 import com.example.driversafeapp_application.api.WeatherApiService
-
+//GMS
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.maps.model.Marker
 import retrofit2.converter.gson.GsonConverterFactory
@@ -65,12 +63,19 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
-
+//Model and API
 import com.example.driversafeapp_application.api.WeatherResponse
+import com.example.driversafeapp_application.model.CheckProximityRequest
+import com.example.driversafeapp_application.model.CheckProximityResponse
+import com.example.driversafeapp_application.model.PredictRequest
+import com.example.driversafeapp_application.model.PredictResponse
+import com.google.maps.android.SphericalUtil.interpolate
+//Time
+import java.time.LocalDateTime
+import java.time.ZoneId
 
 
 class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
-
 
     // get last know location
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -90,11 +95,8 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     private val mawanellaLocation = LatLng(7.252431177548869, 80.44684581600977) // Mawanella as destination 7.252431177548869, 80.44684581600977
     private var isRouteDisplayed = false // Flag to track if a route is currently displayed
 
-
-
     private lateinit var pickRouteButton: Button
     private lateinit var simulateJourneyButton: Button
-
 
     //weather view
     private lateinit var weatherText: TextView
@@ -127,9 +129,17 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     private var currentLocationMarker: Marker? = null // Marker for current location
     private var markerIconBitmap: Bitmap? = null // Store the marker icon Bitmap to prevent garbage collection
 
-
+    // Add backend API service
+    private lateinit var backendApiService: BackendApiService
+    // Add current weather for risk prediction
+    private var currentWeather: String = "unknown"
+    private var nearestBlackspotDistance: Double = Double.MAX_VALUE // Default to max value if no blackspot
+    private var nearestBlackspotId: String? = null // Store the ID of the nearest blackspot
 
     data class Blackspot(val id: String, val location: LatLng, val description: String)
+
+    private var journeyApiHandler: Handler? = null
+    private var journeyApiRunnable: Runnable? = null
 
 
     // Utility function to convert a drawable resource to a Bitmap
@@ -258,14 +268,34 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
 
+
+        // Initialize MapView
+        mapView = findViewById(R.id.mapView)
+        mapView.onCreate(savedInstanceState)
+        mapView.getMapAsync(this)
+
+
+        // Initialize TextViews
+        locationText = findViewById(R.id.locationText)
+        speedText = findViewById(R.id.speedText)
+        weatherText = findViewById(R.id.weatherText)
+        usernameText = findViewById(R.id.usernameText) // Initialize the username TextView
+
         // Initialize the marker icon Bitmap
         markerIconBitmap = drawableToBitmap(this, R.drawable.ic_red_arrow)
 
+        // Initialize Retrofit services
+        weatherApiService = RetrofitClient.weatherApiService
+        directionsApiService = RetrofitClient.directionsApiService
+        backendApiService = RetrofitClient.backendApiService // Initialize backend API service
 
 // Initialize LocationCallback
         locationCallback = object : LocationCallback() {
+            @RequiresApi(Build.VERSION_CODES.O)
             override fun onLocationResult(locationResult: LocationResult) {
+
                 super.onLocationResult(locationResult)
+
                 locationResult.lastLocation?.let { location ->
                     val currentLatLng = LatLng(location.latitude, location.longitude)
                     val speedKmh = location.speed * 3.6 // Convert m/s to km/h
@@ -335,36 +365,18 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                         Log.w("DashboardActivity", "Map not ready when updating current location")
                     }
 
-                    // Fetch weather data
+                    // Fetch weather data and store it for prediction
                     fetchWeatherData(location.latitude, location.longitude)
 
                     // Check proximity to blackspots
-                    checkProximityToBlackspots(currentLatLng)
+//                    checkProximityToBlackspots(currentLatLng) //disabled and switched to backend API below
+
                 } ?: run {
                     Log.w("DashboardActivity", "Location update received but location is null")
                     Toast.makeText(this@DashboardActivity, "Unable to get current location, please ensure GPS is enabled", Toast.LENGTH_LONG).show()
                 }
             }
         }
-
-        // Initialize Retrofit services
-        weatherApiService = RetrofitClient.weatherApiService
-        directionsApiService = RetrofitClient.directionsApiService
-
-        // Initialize MapView
-        mapView = findViewById(R.id.mapView)
-        mapView.onCreate(savedInstanceState)
-        mapView.getMapAsync(this)
-
-
-        // Initialize TextViews
-        locationText = findViewById(R.id.locationText)
-        speedText = findViewById(R.id.speedText)
-        weatherText = findViewById(R.id.weatherText)
-        usernameText = findViewById(R.id.usernameText) // Initialize the username TextView
-
-
-
 
          // Settings Icon Button
         val settingsIconButton = findViewById<ImageButton>(R.id.settingsIconButton)
@@ -387,8 +399,6 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             polylinePoints = emptyList()
             routeInputLauncher.launch(Intent(this, RouteInputActivity::class.java))
         }
-
-
 
         // Simulate Journey Button
         simulateJourneyButton.setOnClickListener {
@@ -474,8 +484,6 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             Log.d("DashboardActivity", "Restored currentLocation onRestore: $currentLocation")
         }
     }
-
-
 
     private fun checkLocationPermission() {
 
@@ -565,98 +573,88 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         return earthRadius * c
     }
 
-    private fun checkProximityToBlackspots(userLocation: LatLng) {
-        // Check if proximity notifications are enabled
-        if (!isProximityNotificationsEnabled) {
-            Log.d("DashboardActivity", "Proximity notifications are disabled, skipping blackspot check")
-            return
-        }
-
-        blackspots.forEach { blackspot ->
-            val distance = calculateDistance(userLocation, blackspot.location)
-            if (distance <= ALERT_DISTANCE_THRESHOLD && lastAlertedBlackspot != blackspot.id) {
-                // Dismiss any existing dialog
-                alertDialog?.dismiss()
-
-                // Show alert dialog for nearby blackspot
-                val message = "You are near a blackspot: ${blackspot.description}\nDistance: ${"%.1f".format(distance)} meters"
-                alertDialog = AlertDialog.Builder(this)
-                    .setTitle("Blackspot Warning")
-                    .setMessage(message)
-                    .setPositiveButton("Dismiss") { dialog, _ ->
-                        lastAlertedBlackspot = blackspot.id
-                        dialog.dismiss()
-                    }
-                    .setCancelable(false) // Prevent dismissal by tapping outside
-                    .create()
-                alertDialog?.show()
-
-                // Play alert sound
-                try {
-                    if (!mediaPlayer.isPlaying) {
-                        mediaPlayer.start()
-                    }
-                } catch (e: IllegalStateException) {
-                    Log.e("DashboardActivity", "Error playing alert sound due to illegal state: ${e.message}", e)
-                    // Reinitialize MediaPlayer if it's in an illegal state
-                    mediaPlayer.release()
-                    mediaPlayer = MediaPlayer.create(this, R.raw.ring2)
-                    mediaPlayer.setOnCompletionListener { mp ->
-                        try {
-                            mp.stop()
-                            mp.reset()
-                            mp.setDataSource(this@DashboardActivity, android.net.Uri.parse("android.resource://${packageName}/${R.raw.ring2}"))
-                            mp.prepare()
-                        } catch (e: Exception) {
-                            Log.e("DashboardActivity", "Error resetting MediaPlayer after completion: ${e.message}", e)
-                        }
-                    }
-                    mediaPlayer.start()
-                } catch (e: Exception) {
-                    Log.e("DashboardActivity", "Error playing alert sound: ${e.message}", e)
-                }
-
-                // Trigger vibration
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    vibrator.vibrate(VibrationEffect.createOneShot(VIBRATION_DURATION, VibrationEffect.DEFAULT_AMPLITUDE))
-                } else {
-                    @Suppress("DEPRECATION")
-                    vibrator.vibrate(VIBRATION_DURATION)
-                }
-
-                Log.d("DashboardActivity", "Blackspot alert: ${blackspot.description} at distance $distance meters")
-            } else if (distance > ALERT_DISTANCE_THRESHOLD && lastAlertedBlackspot == blackspot.id) {
-                // Reset alert if user moves away from the blackspot
-                lastAlertedBlackspot = null
-                alertDialog?.dismiss()
-            }
-        }
-    }
+//    private fun checkProximityToBlackspots(userLocation: LatLng) {
+//        // Check if proximity notifications are enabled
+//        if (!isProximityNotificationsEnabled) {
+//            Log.d("DashboardActivity", "Proximity notifications are disabled, skipping blackspot check")
+//            return
+//        }
+//
+//        blackspots.forEach { blackspot ->
+//            val distance = calculateDistance(userLocation, blackspot.location)
+//            if (distance <= ALERT_DISTANCE_THRESHOLD && lastAlertedBlackspot != blackspot.id) {
+//                // Dismiss any existing dialog
+//                alertDialog?.dismiss()
+//
+//                // Show alert dialog for nearby blackspot
+//                val message = "You are near a blackspot: ${blackspot.description}\nDistance: ${"%.1f".format(distance)} meters"
+//                alertDialog = AlertDialog.Builder(this)
+//                    .setTitle("Blackspot Warning")
+//                    .setMessage(message)
+//                    .setPositiveButton("Dismiss") { dialog, _ ->
+//                        lastAlertedBlackspot = blackspot.id
+//                        dialog.dismiss()
+//                    }
+//                    .setCancelable(false) // Prevent dismissal by tapping outside
+//                    .create()
+//                alertDialog?.show()
+//
+//                // Play alert sound
+//                try {
+//                    if (!mediaPlayer.isPlaying) {
+//                        mediaPlayer.start()
+//                    }
+//                } catch (e: IllegalStateException) {
+//                    Log.e("DashboardActivity", "Error playing alert sound due to illegal state: ${e.message}", e)
+//                    // Reinitialize MediaPlayer if it's in an illegal state
+//                    mediaPlayer.release()
+//                    mediaPlayer = MediaPlayer.create(this, R.raw.ring2)
+//                    mediaPlayer.setOnCompletionListener { mp ->
+//                        try {
+//                            mp.stop()
+//                            mp.reset()
+//                            mp.setDataSource(this@DashboardActivity, android.net.Uri.parse("android.resource://${packageName}/${R.raw.ring2}"))
+//                            mp.prepare()
+//                        } catch (e: Exception) {
+//                            Log.e("DashboardActivity", "Error resetting MediaPlayer after completion: ${e.message}", e)
+//                        }
+//                    }
+//                    mediaPlayer.start()
+//                } catch (e: Exception) {
+//                    Log.e("DashboardActivity", "Error playing alert sound: ${e.message}", e)
+//                }
+//
+//                // Trigger vibration
+//                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+//                    vibrator.vibrate(VibrationEffect.createOneShot(VIBRATION_DURATION, VibrationEffect.DEFAULT_AMPLITUDE))
+//                } else {
+//                    @Suppress("DEPRECATION")
+//                    vibrator.vibrate(VIBRATION_DURATION)
+//                }
+//
+//                Log.d("DashboardActivity", "Blackspot alert: ${blackspot.description} at distance $distance meters")
+//            } else if (distance > ALERT_DISTANCE_THRESHOLD && lastAlertedBlackspot == blackspot.id) {
+//                // Reset alert if user moves away from the blackspot
+//                lastAlertedBlackspot = null
+//                alertDialog?.dismiss()
+//            }
+//        }
+//    }
 
 
     private fun startJourneySimulation() {
         isSimulating = true
-        simulateJourneyButton.isEnabled = false // Disable button during simulation
-        pickRouteButton.isEnabled = false // Disable route picking during simulation
-
-        // Stop real location updates to avoid interference
+        simulateJourneyButton.isEnabled = false
+        pickRouteButton.isEnabled = false
         fusedLocationClient.removeLocationUpdates(locationCallback)
-
-        // Log initial state
         Log.d("DashboardActivity", "Starting simulation: isMapReady=$isMapReady, googleMap=$googleMap, currentLocation=$currentLocation, currentLocationMarker=$currentLocationMarker")
 
-        // Draw the polyline and blackspot markers once at the start of the simulation
         if (isMapReady && googleMap != null) {
-//            googleMap?.clear() // Clear the map to start fresh // removed because it causes the dissapear in current marker
-
-            // Draw the polyline
             val polylineOptions = PolylineOptions()
                 .addAll(polylinePoints)
                 .color(Color.BLUE)
                 .width(10f)
             googleMap?.addPolyline(polylineOptions)
-
-            // Draw blackspot markers
             blackspots.forEach { blackspot ->
                 googleMap?.addMarker(
                     MarkerOptions()
@@ -666,14 +664,10 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                         .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_RED))
                 )
             }
-
-            // Ensure currentLocation is set to the first point of the polyline if null
             if (currentLocation == null && polylinePoints.isNotEmpty()) {
                 currentLocation = polylinePoints[0]
                 Log.d("DashboardActivity", "Initialized currentLocation to first polyline point: $currentLocation")
             }
-
-            // Initialize the current location marker if not already set
             if (currentLocationMarker == null && currentLocation != null) {
                 currentLocationMarker = if (markerIconBitmap != null) {
                     googleMap?.addMarker(
@@ -683,7 +677,6 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                             .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.fromBitmap(markerIconBitmap!!))
                     )
                 } else {
-                    // Fallback to default marker if the bitmap conversion fails
                     Log.w("DashboardActivity", "Failed to load custom icon in startJourneySimulation, using default marker")
                     googleMap?.addMarker(
                         MarkerOptions()
@@ -693,11 +686,9 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                     )
                 }
                 Log.d("DashboardActivity", "Initialized currentLocationMarker in startJourneySimulation at position: $currentLocation, marker: $currentLocationMarker")
-            } else if (currentLocationMarker == null) {
-                Log.w("DashboardActivity", "Cannot initialize currentLocationMarker in startJourneySimulation: currentLocation is null")
             }
         } else {
-            Log.w("DashboardActivity", "Cannot start simulation: Map not ready (isMapReady=$isMapReady, googleMap=$googleMap)")
+            Log.w("DashboardActivity", "Cannot start simulation: Map not ready")
             Toast.makeText(this, "Map not ready, please try again", Toast.LENGTH_SHORT).show()
             isSimulating = false
             simulateJourneyButton.isEnabled = true
@@ -705,52 +696,116 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             return
         }
 
-        // Simulate movement along the polyline
+        journeyApiHandler = Handler(Looper.getMainLooper())
+        journeyApiRunnable = object : Runnable {
+            @RequiresApi(Build.VERSION_CODES.O)
+            override fun run() {
+                if (isSimulating && currentLocation != null) {
+                    Log.d("DashboardActivity", "Calling checkProximityViaBackend for location: $currentLocation")
+                    checkProximityViaBackend(currentLocation!!)
+                    Log.d("DashboardActivity", "Finished checkProximityViaBackend")
+                    if (currentWeather != "unknown") {
+                        Log.d("DashboardActivity", "Calling predictRiskViaBackend with nearestBlackspotDistance: $nearestBlackspotDistance")
+                        predictRiskViaBackend(currentLocation!!, 60.0)
+                    } else {
+                        Log.d("DashboardActivity", "Skipping predictRiskViaBackend: currentWeather is unknown")
+                    }
+                    journeyApiHandler?.postDelayed(this, 5000)
+                } else {
+                    Log.d("DashboardActivity", "Skipping journeyApiRunnable: isSimulating=$isSimulating, currentLocation=$currentLocation")
+                }
+            }
+        }
+        journeyApiHandler?.post(journeyApiRunnable!!)
+
         var currentIndex = 0
-        val simulationSpeed = 5 // Move 5 points per second (adjust for speed)
-        val simulationInterval = 1000L // Update every 1 second
+        var fraction = 0.0f // Interpolation fraction between points
+        val simulationSpeedMetersPerSecond = 16.67f // 60 km/h = 16.67 m/s
+        val updateInterval = 33L // Update every 33ms (~30 FPS)
+        var lastPoint = polylinePoints[0]
+        var nextPoint = if (polylinePoints.size > 1) polylinePoints[1] else polylinePoints[0]
+        var segmentDistance = calculateDistance(lastPoint, nextPoint).toFloat() // Distance between current points
+        var distanceCovered = 0.0f // Distance covered in current segment
 
         simulationRunnable = object : Runnable {
             override fun run() {
-                if (currentIndex < polylinePoints.size) {
-                    currentLocation = polylinePoints[currentIndex]
-                    locationText.text = "Location: Lat ${"%.4f".format(currentLocation!!.latitude)}, Lng ${"%.4f".format(currentLocation!!.longitude)}"
-                    speedText.text = "Speed: Simulated"
+                if (currentIndex < polylinePoints.size - 1) {
+                    // Calculate distance to move in this frame
+                    val distanceThisFrame = simulationSpeedMetersPerSecond * (updateInterval / 1000.0f)
+                    distanceCovered += distanceThisFrame
 
-                    // Update marker position on the map
+                    // Update fraction and position
+                    fraction = distanceCovered / segmentDistance
+                    if (fraction >= 1.0f) {
+                        // Move to next segment
+                        currentIndex++
+                        if (currentIndex < polylinePoints.size - 1) {
+                            lastPoint = polylinePoints[currentIndex]
+                            nextPoint = polylinePoints[currentIndex + 1]
+                            segmentDistance = calculateDistance(lastPoint, nextPoint).toFloat()
+                            distanceCovered = distanceCovered - segmentDistance // Carry over excess distance
+                            fraction = distanceCovered / segmentDistance
+                        } else {
+                            // Reached end of polyline
+                            currentLocation = polylinePoints.last()
+                            fraction = 1.0f
+                        }
+                    }
+
+                    // Interpolate position
+                    if (currentIndex < polylinePoints.size - 1) {
+                        currentLocation = interpolate(lastPoint, nextPoint,
+                            fraction.coerceIn(0.0f, 1.0f).toDouble()
+                        )
+                    }
+
+                    locationText.text = "Location: Lat ${"%.4f".format(currentLocation!!.latitude)}, Lng ${"%.4f".format(currentLocation!!.longitude)}"
+                    speedText.text = "Speed: Simulated (${"%.1f".format(simulationSpeedMetersPerSecond * 3.6)} km/h)"
+
+                    val mawanella = LatLng(7.252431, 80.446845)
+                    val distanceToMawanella = calculateDistance(currentLocation!!, mawanella)
+                    Log.d("DashboardActivity", "Distance to Mawanella: $distanceToMawanella meters")
+
                     if (isMapReady && googleMap != null) {
-                        // Update the current location marker's position
                         currentLocationMarker?.position = currentLocation!!
                         Log.d("DashboardActivity", "Updated currentLocationMarker position in simulation to: $currentLocation, visible: ${currentLocationMarker?.isVisible}")
-                        // Smoothly animate the camera to follow the marker
-                        googleMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation!!, 15f), 1000, null)
+                        googleMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation!!, 15f), updateInterval.toInt(), null)
                     } else {
                         Log.w("DashboardActivity", "Cannot update marker: Map not ready during simulation")
                     }
 
-                    // Check proximity to blackspots
-                    checkProximityToBlackspots(currentLocation!!)
-
-                    currentIndex += simulationSpeed
-                    simulationHandler.postDelayed(this, simulationInterval)
+                    simulationHandler.postDelayed(this, updateInterval)
                 } else {
-                    // Simulation complete
                     isSimulating = false
                     simulateJourneyButton.isEnabled = true
                     pickRouteButton.isEnabled = true
                     Toast.makeText(this@DashboardActivity, "Simulation complete", Toast.LENGTH_SHORT).show()
-                    // Resume real location updates
                     getCurrentLocation()
+                    journeyApiHandler?.removeCallbacks(journeyApiRunnable!!)
+                    journeyApiHandler = null
+                    journeyApiRunnable = null
+                    nearestBlackspotDistance = Double.MAX_VALUE
+                    nearestBlackspotId = null
+                    lastAlertedBlackspot = null
+                    alertDialog?.dismiss()
                 }
             }
         }
+
+        // Helper function to interpolate between two LatLng points
+        fun interpolate(start: LatLng, end: LatLng, fraction: Float): LatLng {
+            val lat = start.latitude + (end.latitude - start.latitude) * fraction
+            val lng = start.longitude + (end.longitude - start.longitude) * fraction
+            return LatLng(lat, lng)
+        }
+
         simulationHandler.post(simulationRunnable!!)
     }
 
 
     // fetch weather from API
+    // Update fetchWeatherData to store current weather
     private fun fetchWeatherData(latitude: Double, longitude: Double) {
-
         Log.d("DashboardActivity", "Fetching weather data for lat=$latitude, lon=$longitude")
         val call = weatherApiService.getCurrentWeather(latitude, longitude, "metric", openWeatherApiKey)
         call.enqueue(object : Callback<WeatherResponse> {
@@ -760,14 +815,18 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                     if (weatherResponse != null) {
                         Log.d("DashboardActivity", "Weather API response: $weatherResponse")
                         if (weatherResponse.cod == 200) {
-                            weatherText.text = "Weather: ${weatherResponse.weather[0].description.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }}"
+                            val weatherDescription = weatherResponse.weather[0].description.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                            weatherText.text = "Weather: $weatherDescription"
+                            currentWeather = weatherResponse.weather[0].description // Store weather for risk prediction
                         } else {
                             Log.w("DashboardActivity", "Weather API response code: ${weatherResponse.cod}")
                             weatherText.text = "Weather: Unable to fetch (Code: ${weatherResponse.cod})"
+                            currentWeather = "unknown"
                         }
                     } else {
                         Log.w("DashboardActivity", "Weather response body is null")
                         weatherText.text = "Weather: Unable to fetch"
+                        currentWeather = "unknown"
                     }
                 } else {
                     val errorBody = response.errorBody()?.string() ?: "Unknown error"
@@ -775,6 +834,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                     Log.e("DashboardActivity", "Weather API raw response: ${response.raw()}")
                     weatherText.text = "Weather: Error fetching data"
                     Toast.makeText(this@DashboardActivity, "Weather API error: ${response.code()}. Error: $errorBody", Toast.LENGTH_SHORT).show()
+                    currentWeather = "unknown"
                 }
             }
 
@@ -782,6 +842,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                 Log.e("DashboardActivity", "Weather fetch failed: ${t.message}", t)
                 weatherText.text = "Weather: Network error"
                 Toast.makeText(this@DashboardActivity, "Weather fetch failed: ${t.message}", Toast.LENGTH_SHORT).show()
+                currentWeather = "unknown"
             }
         })
     }
@@ -933,13 +994,209 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
                 blackspots = tempBlackspots
                 // Check proximity to blackspots if current location is available
-                currentLocation?.let { checkProximityToBlackspots(it) }
+                currentLocation?.let { checkProximityViaBackend(it) }
             }
             .addOnFailureListener { e ->
                 Log.e("DashboardActivity", "Failed to fetch blackspots: ${e.message}", e)
                 Toast.makeText(this, "Failed to fetch blackspots: ${e.message}", Toast.LENGTH_SHORT).show()
             }
     }
+
+    // Update checkProximityViaBackend to store nearest blackspot distance
+    private fun checkProximityViaBackend(userLocation: LatLng) {
+        Log.d("DashboardActivity", "Entered checkProximityViaBackend with isProximityNotificationsEnabled: $isProximityNotificationsEnabled, location: $userLocation")
+        if (!isProximityNotificationsEnabled) {
+            Log.d("DashboardActivity", "Proximity notifications are disabled, skipping backend proximity check")
+            return
+        }
+
+        val request = CheckProximityRequest(lat = userLocation.latitude, lon = userLocation.longitude)
+        Log.d("DashboardActivity", "Sending check_proximity request: $request")
+
+        val retryCount = 3
+        var attempt = 0
+        var lastFailureTime = 0L
+
+        fun makeRequest() {
+            attempt++
+            Log.d("DashboardActivity", "Attempt $attempt of $retryCount for check_proximity")
+            backendApiService.checkProximity(request).enqueue(object : Callback<CheckProximityResponse> {
+                override fun onResponse(call: Call<CheckProximityResponse>, response: Response<CheckProximityResponse>) {
+                    Log.d("DashboardActivity", "check_proximity response: code=${response.code()}, isSuccessful=${response.isSuccessful}")
+                    if (response.isSuccessful) {
+                        val proximityResponse = response.body()
+                        Log.d("DashboardActivity", "check_proximity response body: $proximityResponse")
+                        if (proximityResponse != null && proximityResponse.alert) {
+                            val blackspotId = proximityResponse.blackspot
+                            val distance = proximityResponse.distance ?: Double.MAX_VALUE
+                            nearestBlackspotDistance = distance
+                            nearestBlackspotId = blackspotId
+                            Log.d("DashboardActivity", "Proximity check: blackspotId=$blackspotId, distance=$distance")
+                            if (blackspotId != null && lastAlertedBlackspot != blackspotId) {
+                                db.collection("blackspots").document(blackspotId).get()
+                                    .addOnSuccessListener { document ->
+                                        if (document != null && document.exists()) {
+                                            val description = document.getString("description") ?: "Unknown blackspot"
+                                            alertDialog?.dismiss()
+                                            val message = "You are near a blackspot: $description\nDistance: ${"%.1f".format(distance)} meters"
+                                            alertDialog = AlertDialog.Builder(this@DashboardActivity)
+                                                .setTitle("Blackspot Warning")
+                                                .setMessage(message)
+                                                .setPositiveButton("Dismiss") { dialog, _ ->
+                                                    lastAlertedBlackspot = blackspotId
+                                                    dialog.dismiss()
+                                                }
+                                                .setCancelable(false)
+                                                .create()
+                                            alertDialog?.show()
+                                            try {
+                                                if (!mediaPlayer.isPlaying) mediaPlayer.start()
+                                            } catch (e: IllegalStateException) {
+                                                Log.e("DashboardActivity", "Error playing alert sound: ${e.message}", e)
+                                                mediaPlayer.release()
+                                                mediaPlayer = MediaPlayer.create(this@DashboardActivity, R.raw.ring2)
+                                                mediaPlayer.setOnCompletionListener { mp ->
+                                                    try {
+                                                        mp.stop()
+                                                        mp.reset()
+                                                        mp.setDataSource(this@DashboardActivity, android.net.Uri.parse("android.resource://${packageName}/${R.raw.ring2}"))
+                                                        mp.prepare()
+                                                    } catch (e: Exception) {
+                                                        Log.e("DashboardActivity", "Error resetting MediaPlayer: ${e.message}", e)
+                                                    }
+                                                }
+                                                mediaPlayer.start()
+                                            }
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                                vibrator.vibrate(VibrationEffect.createOneShot(VIBRATION_DURATION, VibrationEffect.DEFAULT_AMPLITUDE))
+                                            } else {
+                                                @Suppress("DEPRECATION")
+                                                vibrator.vibrate(VIBRATION_DURATION)
+                                            }
+                                            Log.d("DashboardActivity", "Blackspot alert: $description at distance $distance meters")
+                                        } else {
+                                            Log.w("DashboardActivity", "Blackspot document not found for ID: $blackspotId")
+                                        }
+                                    }
+                                    .addOnFailureListener { e ->
+                                        Log.e("DashboardActivity", "Failed to fetch blackspot details: ${e.message}", e)
+                                    }
+                            }
+                        } else {
+                            Log.d("DashboardActivity", "No nearby blackspots detected via backend: response=$proximityResponse")
+                            nearestBlackspotDistance = Double.MAX_VALUE
+                            nearestBlackspotId = null
+                            if (lastAlertedBlackspot != null) {
+                                lastAlertedBlackspot = null
+                                alertDialog?.dismiss()
+                            }
+                        }
+                    } else {
+                        val errorBody = response.errorBody()?.string() ?: "No error body"
+                        Log.e("DashboardActivity", "check_proximity failed: code=${response.code()}, message=${response.message()}, errorBody=$errorBody")
+                        if (System.currentTimeMillis() - lastFailureTime > 10000) {
+                            lastFailureTime = System.currentTimeMillis()
+                            Toast.makeText(this@DashboardActivity, "Failed to check proximity: ${response.message()}", Toast.LENGTH_SHORT).show()
+                        }
+                        if (attempt < retryCount) {
+                            Handler(Looper.getMainLooper()).postDelayed({ makeRequest() }, 2000)
+                        }
+                    }
+                }
+
+                override fun onFailure(call: Call<CheckProximityResponse>, t: Throwable) {
+                    Log.e("DashboardActivity", "check_proximity request failed: ${t.message}", t)
+                    if (System.currentTimeMillis() - lastFailureTime > 10000) {
+                        lastFailureTime = System.currentTimeMillis()
+                        Toast.makeText(this@DashboardActivity, "Proximity check failed: ${t.message}", Toast.LENGTH_SHORT).show()
+                    }
+                    if (attempt < retryCount) {
+                        Handler(Looper.getMainLooper()).postDelayed({ makeRequest() }, 2000)
+                    }
+                }
+            })
+        }
+        makeRequest()
+        Log.d("DashboardActivity", "Finished checkProximityViaBackend")
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun predictRiskViaBackend(userLocation: LatLng, speedKmh: Double) {
+        if (currentWeather == "unknown") {
+            Log.d("DashboardActivity", "Weather data not available, skipping risk prediction")
+            return
+        }
+
+        val currentTime = LocalDateTime.now(ZoneId.of("+0530"))
+        val hour = currentTime.hour
+        val dayOfWeek = currentTime.dayOfWeek.value % 7
+        val month = currentTime.monthValue
+
+        val request = PredictRequest(
+            Vehicle_Speed = speedKmh,
+            blackspot_distance_m = nearestBlackspotDistance,
+            weather_description = currentWeather,
+            hour = hour,
+            day_of_week = dayOfWeek,
+            month = month,
+            latitude = userLocation.latitude,
+            longitude = userLocation.longitude
+        )
+
+        val retryCount = 3
+        var attempt = 0
+        var lastFailureTime = 0L
+
+        fun makeRequest() {
+            attempt++
+            backendApiService.predictRisk(request).enqueue(object : Callback<PredictResponse> {
+                override fun onResponse(call: Call<PredictResponse>, response: Response<PredictResponse>) {
+                    if (response.isSuccessful) {
+                        val predictResponse = response.body()
+                        if (predictResponse != null) {
+                            Log.d("DashboardActivity", "Risk prediction: probability=${predictResponse.accident_probability}, alert=${predictResponse.alert}")
+                            val message = "Accident Probability: ${"%.2f".format(predictResponse.accident_probability * 100)}%\n" +
+                                    (predictResponse.alert ?: "No specific action required")
+                            Toast.makeText(
+                                this@DashboardActivity,
+                                message,
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } else {
+                            Log.w("DashboardActivity", "Risk prediction response is null")
+                            if (System.currentTimeMillis() - lastFailureTime > 10000) {
+                                lastFailureTime = System.currentTimeMillis()
+                                Toast.makeText(this@DashboardActivity, "Unable to predict risk: Response is null", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    } else {
+                        Log.e("DashboardActivity", "Failed to predict risk: ${response.code()} - ${response.message()}")
+                        if (System.currentTimeMillis() - lastFailureTime > 10000) {
+                            lastFailureTime = System.currentTimeMillis()
+                            Toast.makeText(this@DashboardActivity, "Failed to predict risk: ${response.message()}", Toast.LENGTH_SHORT).show()
+                        }
+                        if (attempt < retryCount) {
+                            Handler(Looper.getMainLooper()).postDelayed({ makeRequest() }, 2000) // Retry after 2 seconds
+                        }
+                    }
+                }
+
+                override fun onFailure(call: Call<PredictResponse>, t: Throwable) {
+                    Log.e("DashboardActivity", "Risk prediction failed: ${t.message}")
+                    if (System.currentTimeMillis() - lastFailureTime > 10000) {
+                        lastFailureTime = System.currentTimeMillis()
+                        Toast.makeText(this@DashboardActivity, "Risk prediction failed: ${t.message}", Toast.LENGTH_SHORT).show()
+                    }
+                    if (attempt < retryCount) {
+                        Handler(Looper.getMainLooper()).postDelayed({ makeRequest() }, 2000) // Retry after 2 seconds
+                    }
+                }
+            })
+        }
+
+        makeRequest()
+    }
+
 
     override fun onMapReady(map: GoogleMap) {
         googleMap = map
@@ -981,9 +1238,6 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         // Fetch blackspots after map is ready
         fetchBlackspots()
     }
-
-
-
     // MapView lifecycle methods
     override fun onResume() {
         super.onResume()
@@ -1022,8 +1276,6 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             mediaPlayer.stop()
         }
     }
-
-
     override fun onDestroy() {
         super.onDestroy()
         mapView.onDestroy()
@@ -1036,8 +1288,6 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         // Clean up the marker icon Bitmap
         markerIconBitmap = null
     }
-
-
     override fun onLowMemory() {
         super.onLowMemory()
         mapView.onLowMemory()
