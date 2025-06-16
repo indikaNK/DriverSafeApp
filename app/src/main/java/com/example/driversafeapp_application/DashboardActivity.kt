@@ -89,6 +89,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     private val locationPermissionCode = 100
     private var currentLocation: LatLng? = null
     private var destinationLocation: LatLng? = null
+    private var startLocation: LatLng? = null
     private var isMapReady = false
     private var pendingRouteRequest: Pair<LatLng, LatLng>? = null
     private var isLocationReady = false
@@ -164,54 +165,32 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private val routeInputLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-
         Log.d("DashboardActivity", "Received result from RouteInputActivity: resultCode=${result.resultCode}")
 
         if (result.resultCode == RESULT_OK) {
+            val startLat = result.data?.getDoubleExtra("startLat", -1.0) ?: -1.0
+            val startLng = result.data?.getDoubleExtra("startLng", -1.0) ?: -1.0
+            val destLat = result.data?.getDoubleExtra("destLat", -1.0) ?: -1.0
+            val destLng = result.data?.getDoubleExtra("destLng", -1.0) ?: -1.0
 
-            val lat = result.data?.getDoubleExtra("destinationLat", -1.0) ?: -1.0
-            val lng = result.data?.getDoubleExtra("destinationLng", -1.0) ?: -1.0
-
-            if (lat == -1.0 || lng == -1.0) {
-                Log.e("DashboardActivity", "Invalid coordinates received: lat=$lat, lng=$lng")
-                Toast.makeText(this, "Could not determine destination coordinates", Toast.LENGTH_SHORT).show()
+            if (startLat == -1.0 || startLng == -1.0 || destLat == -1.0 || destLng == -1.0) {
+                Log.e("DashboardActivity", "Invalid coordinates received: start($startLat,$startLng), dest($destLat,$destLng)")
+                Toast.makeText(this, "Invalid coordinates, please try again", Toast.LENGTH_SHORT).show()
                 return@registerForActivityResult
             }
 
-//            val destination = result.data?.getStringExtra("destination")
-            destinationLocation = LatLng(lat, lng)
+            startLocation = LatLng(startLat, startLng)
+            destinationLocation = LatLng(destLat, destLng)
 
-            Log.d("DashboardActivity", "Destination coordinates received: lat/lng: ($lat,$lng)")
-            Log.d("DashboardActivity", "Current location state: $currentLocation")
+            Log.d("DashboardActivity", "Start coordinates: $startLocation, Destination coordinates: $destinationLocation")
 
-//              Enable for testing only
-//            if (destination == null) {
-//                Log.e("DashboardActivity", "Destination is null in route input result")
-//                Toast.makeText(this, "No destination provided", Toast.LENGTH_SHORT).show()
-//                return@registerForActivityResult
-//            }
-//            Log.d("DashboardActivity", "Destination received: $destination")
-//            // For testing, set Mawanella as the destination
-//            destinationLocation = mawanellaLocation
-//            Log.d("DashboardActivity", "Current location state: $currentLocation")
-
-
-            if (currentLocation != null && destinationLocation != null) {
-                if (isMapReady && googleMap != null) {
-
-                    // !! not null
-                    fetchRoute(currentLocation!!, destinationLocation!!)
-                } else {
-                    //error handler:: route request get stored until Map is ready, added as a
-                    pendingRouteRequest = Pair(currentLocation!!, destinationLocation!!)
-                    Log.d("DashboardActivity", "Map not ready, storing route request: $pendingRouteRequest")
-                }
+            if (isMapReady && googleMap != null) {
+                fetchRoute(startLocation!!, destinationLocation!!)
             } else {
-                Log.e("DashboardActivity", "Cannot fetch route: currentLocation=$currentLocation, destinationLocation=$destinationLocation")
-                Toast.makeText(this, "Location data not available, please wait and try again", Toast.LENGTH_SHORT).show()
+                pendingRouteRequest = Pair(startLocation!!, destinationLocation!!)
+                Log.d("DashboardActivity", "Map not ready, storing route request: $pendingRouteRequest")
             }
         } else {
-//            warn log
             Log.w("DashboardActivity", "Route input cancelled or failed: resultCode=${result.resultCode}")
         }
     }
@@ -282,7 +261,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         usernameText = findViewById(R.id.usernameText) // Initialize the username TextView
 
         // Initialize the marker icon Bitmap
-        markerIconBitmap = drawableToBitmap(this, R.drawable.ic_red_arrow)
+        markerIconBitmap = drawableToBitmap(this, android.R.drawable.ic_menu_mylocation)
 
         // Initialize Retrofit services
         weatherApiService = RetrofitClient.weatherApiService
@@ -397,7 +376,13 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             googleMap?.clear() // clear the current map
             currentLocationMarker = null
             polylinePoints = emptyList()
-            routeInputLauncher.launch(Intent(this, RouteInputActivity::class.java))
+            val intent = Intent(this, RouteInputActivity::class.java)
+            currentLocation?.let {
+                intent.putExtra("currentLocationLat", it.latitude)
+                intent.putExtra("currentLocationLng", it.longitude)
+                Log.d("DashboardActivity", "Passing currentLocation as lat/lng: (${it.latitude},${it.longitude})")
+            } ?: Log.w("DashboardActivity", "currentLocation is null, not passing")
+            routeInputLauncher.launch(intent)
         }
 
         // Simulate Journey Button

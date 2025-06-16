@@ -7,7 +7,7 @@ object RetrofitClient {
     private const val WEATHER_BASE_URL = "https://api.openweathermap.org"
     private const val DIRECTIONS_BASE_URL = "https://maps.googleapis.com/maps/api/"
     private const val GEOCODING_BASE_URL = "https://maps.googleapis.com/maps/api/"
-    private const val BACKEND_BASE_URL = "https://b1b6-2402-d000-8110-1def-91ea-c2bb-80a-5164.ngrok-free.app/" // Replace with  URL o
+    private const val BACKEND_BASE_URL = "https://0d95-2402-d000-8110-1def-502b-f268-1a55-7316.ngrok-free.app" // Replace with  URL of ngrok
 
     private val weatherRetrofit = Retrofit.Builder()
         .baseUrl(WEATHER_BASE_URL)

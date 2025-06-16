@@ -3,26 +3,44 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp"
-    android:gravity="center">
+    android:padding="16dp">
 
-    <com.google.android.material.textfield.TextInputLayout
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Starting Location" />
+
+    <com.google.android.material.textfield.TextInputEditText
+        android:id="@+id/startLocationField"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp">
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/destinationField"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Enter your destination (e.g., Ganethenna)"
-            android:inputType="text"/>
-    </com.google.android.material.textfield.TextInputLayout>
+        android:hint="Enter starting location (e.g., Current Location or place name)"
+        android:inputType="text" />
+
+    <Button
+        android:id="@+id/getCurrentLocationButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Get Current Location"
+        android:layout_gravity="start" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Destination" />
+
+    <com.google.android.material.textfield.TextInputEditText
+        android:id="@+id/destinationField"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter destination (e.g., Mawanella)"
+        android:inputType="text" />
 
     <Button
         android:id="@+id/pickDestination"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Start Journey"
-        android:layout_marginTop="16dp"/>
+        android:text="Confirm Route"
+        android:layout_gravity="center" />
 
 </LinearLayout>
