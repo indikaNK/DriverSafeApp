@@ -17,12 +17,26 @@
         android:hint="Enter starting location (e.g., Current Location or place name)"
         android:inputType="text" />
 
-    <Button
-        android:id="@+id/getCurrentLocationButton"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Get Current Location"
-        android:layout_gravity="start" />
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/getCurrentLocationButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Get Current Location"
+            android:layout_weight="1" />
+
+        <Button
+            android:id="@+id/clearStartLocationButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Clear"
+            android:layout_weight="1"
+            android:layout_gravity="end" />
+    </LinearLayout>
 
     <TextView
         android:layout_width="wrap_content"
@@ -36,11 +50,32 @@
         android:hint="Enter destination (e.g., Mawanella)"
         android:inputType="text" />
 
-    <Button
-        android:id="@+id/pickDestination"
+    <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Confirm Route"
-        android:layout_gravity="center" />
+        android:text="Weather Date" />
+
+    <com.google.android.material.textfield.TextInputEditText
+        android:id="@+id/weatherDateField"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Select weather date (default: current date)"
+        android:inputType="date"
+        android:focusable="false" />
+
+    <Button
+        android:id="@+id/pickWeatherDateButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="start"
+        android:text="Pick Date"
+        android:textAlignment="textStart" />
+
+    <Button
+        android:id="@+id/pickDestination"
+        android:layout_width="385dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="Confirm Route" />
 
 </LinearLayout>

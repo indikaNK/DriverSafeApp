@@ -1,5 +1,6 @@
 package com.example.driversafeapp_application
-//maps google
+
+// Maps Google
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -37,82 +38,84 @@ import android.os.Vibrator
 import android.util.Log
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
+import androidx.annotation.RequiresPermission
 import androidx.core.graphics.drawable.DrawableCompat
 import com.example.driversafeapp_application.api.BackendApiService
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationResult
-//Firebase
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-//Retrofit
+import com.example.driversafeapp_application.api.DirectionsApiService
+import com.example.driversafeapp_application.api.RetrofitClient
+import com.example.driversafeapp_application.api.WeatherApiService
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.LatLngBounds
+import com.google.maps.android.SphericalUtil
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 import retrofit2.Retrofit
-import com.example.driversafeapp_application.api.DirectionsApiService
-import com.example.driversafeapp_application.api.RetrofitClient
-import com.example.driversafeapp_application.api.WeatherApiService
-//GMS
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.maps.model.Marker
 import retrofit2.converter.gson.GsonConverterFactory
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.math.sqrt
-//Model and API
 import com.example.driversafeapp_application.api.WeatherResponse
 import com.example.driversafeapp_application.model.CheckProximityRequest
 import com.example.driversafeapp_application.model.CheckProximityResponse
 import com.example.driversafeapp_application.model.PredictRequest
 import com.example.driversafeapp_application.model.PredictResponse
-import com.google.maps.android.SphericalUtil.interpolate
-//Time
+import com.google.android.gms.maps.model.Marker
+import java.text.SimpleDateFormat
 import java.time.LocalDateTime
 import java.time.ZoneId
-
+import java.util.Calendar
+import java.util.Locale
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
-    // get last know location
+    // Get last known location
     private lateinit var fusedLocationClient: FusedLocationProviderClient
-    // google map view
+    // Google Map view
     private lateinit var mapView: MapView
-    private  var googleMap: GoogleMap? = null
+    private var googleMap: GoogleMap? = null
     private lateinit var locationText: TextView
     private lateinit var speedText: TextView
     private lateinit var usernameText: TextView // Added TextView for username
 
     private val locationPermissionCode = 100
+    private val LOCATION_PERMISSION_REQUEST_CODE = 1001 // Define the constant here
     private var currentLocation: LatLng? = null
     private var destinationLocation: LatLng? = null
     private var startLocation: LatLng? = null
     private var isMapReady = false
-    private var pendingRouteRequest: Pair<LatLng, LatLng>? = null
+
+    private var pendingRouteRequest: Triple<LatLng, LatLng, String>? = null
     private var isLocationReady = false
-    private val mawanellaLocation = LatLng(7.252431177548869, 80.44684581600977) // Mawanella as destination 7.252431177548869, 80.44684581600977
+    private val mawanellaLocation = LatLng(7.252431177548869, 80.44684581600977) // Mawanella as destination
     private var isRouteDisplayed = false // Flag to track if a route is currently displayed
 
     private lateinit var pickRouteButton: Button
     private lateinit var simulateJourneyButton: Button
 
-    //weather view
+    // Weather view
     private lateinit var weatherText: TextView
     private lateinit var weatherApiService: WeatherApiService
     private val openWeatherApiKey = "a95567bb398bc0266cd2b9e0d0049cae"
     private val googleMapsApiKey = "AIzaSyB-u93Huo2uyhIVLPsyNxNW7hg5EMb7CsM"
 
-    //direction
+    // Direction
     private lateinit var directionsApiService: DirectionsApiService
 
-    //firebase
+    // Firebase
     private lateinit var auth: FirebaseAuth
     private lateinit var db: FirebaseFirestore
 
-    //alerts Blackspot Proximity
+    // Alerts Blackspot Proximity
     private lateinit var locationCallback: LocationCallback
     private var blackspots: List<Blackspot> = emptyList()
     private var lastAlertedBlackspot: String? = null // To prevent repeated alerts for the same blackspot
@@ -127,8 +130,8 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     private var isSimulating = false // Track if simulation is in progress
     private var simulationHandler: Handler = Handler(Looper.getMainLooper())
     private var simulationRunnable: Runnable? = null
-    private var currentLocationMarker: Marker? = null // Marker for current location
-    private var markerIconBitmap: Bitmap? = null // Store the marker icon Bitmap to prevent garbage collection
+    private var currentLocationMarker: Marker? = null // Single marker for current location
+    private var markerIconBitmap: Bitmap? = null // Store the marker icon Bitmap
 
     // Add backend API service
     private lateinit var backendApiService: BackendApiService
@@ -141,7 +144,6 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private var journeyApiHandler: Handler? = null
     private var journeyApiRunnable: Runnable? = null
-
 
     // Utility function to convert a drawable resource to a Bitmap
     private fun drawableToBitmap(context: Context, drawableId: Int): Bitmap? {
@@ -172,6 +174,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             val startLng = result.data?.getDoubleExtra("startLng", -1.0) ?: -1.0
             val destLat = result.data?.getDoubleExtra("destLat", -1.0) ?: -1.0
             val destLng = result.data?.getDoubleExtra("destLng", -1.0) ?: -1.0
+            val weatherDate = result.data?.getStringExtra("weatherDate") ?: SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Calendar.getInstance().time)
 
             if (startLat == -1.0 || startLng == -1.0 || destLat == -1.0 || destLng == -1.0) {
                 Log.e("DashboardActivity", "Invalid coordinates received: start($startLat,$startLng), dest($destLat,$destLng)")
@@ -182,12 +185,12 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             startLocation = LatLng(startLat, startLng)
             destinationLocation = LatLng(destLat, destLng)
 
-            Log.d("DashboardActivity", "Start coordinates: $startLocation, Destination coordinates: $destinationLocation")
+            Log.d("DashboardActivity", "Start coordinates: $startLocation, Destination coordinates: $destinationLocation, Weather Date: $weatherDate")
 
             if (isMapReady && googleMap != null) {
-                fetchRoute(startLocation!!, destinationLocation!!)
+                fetchRoute(startLocation!!, destinationLocation!!, weatherDate)
             } else {
-                pendingRouteRequest = Pair(startLocation!!, destinationLocation!!)
+                pendingRouteRequest = Triple(startLocation!!, destinationLocation!!, weatherDate)
                 Log.d("DashboardActivity", "Map not ready, storing route request: $pendingRouteRequest")
             }
         } else {
@@ -199,8 +202,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_dashboard)
 
-
-        // Error handler:: Check for Google Play Services availability
+        // Error handler: Check for Google Play Services availability
         val googleApiAvailability = GoogleApiAvailability.getInstance()
         val resultCode = googleApiAvailability.isGooglePlayServicesAvailable(this)
         if (resultCode != ConnectionResult.SUCCESS) {
@@ -214,24 +216,20 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         }
         Log.d("DashboardActivity", "Google Play Services available: version=${GoogleApiAvailability.GOOGLE_PLAY_SERVICES_VERSION_CODE}")
 
-
         // Initialize Firebase
         FirebaseApp.initializeApp(this)
         auth = FirebaseAuth.getInstance()
         db = FirebaseFirestore.getInstance()
 
-
-
         // Initialize FusedLocationProviderClient
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
-        // Initialize retrofit
+        // Initialize Retrofit
         val retrofit = Retrofit.Builder()
             .baseUrl("https://api.openweathermap.org/")
             .addConverterFactory(GsonConverterFactory.create())
             .build()
         weatherApiService = retrofit.create(WeatherApiService::class.java)
-
 
         // Initialize Vibrator and MediaPlayer
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
@@ -247,12 +245,10 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
 
-
         // Initialize MapView
         mapView = findViewById(R.id.mapView)
         mapView.onCreate(savedInstanceState)
         mapView.getMapAsync(this)
-
 
         // Initialize TextViews
         locationText = findViewById(R.id.locationText)
@@ -268,11 +264,10 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         directionsApiService = RetrofitClient.directionsApiService
         backendApiService = RetrofitClient.backendApiService // Initialize backend API service
 
-// Initialize LocationCallback
+        // Initialize LocationCallback
         locationCallback = object : LocationCallback() {
             @RequiresApi(Build.VERSION_CODES.O)
             override fun onLocationResult(locationResult: LocationResult) {
-
                 super.onLocationResult(locationResult)
 
                 locationResult.lastLocation?.let { location ->
@@ -284,7 +279,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                     currentLocation = currentLatLng
                     isLocationReady = true
                     Log.d("DashboardActivity", "Fresh location received: $currentLocation, enabling Pick Route button")
-                    pickRouteButton.isEnabled = true  // Enable button now that location is ready
+                    pickRouteButton.isEnabled = true // Enable button now that location is ready
 
                     // Update map with current location if map is ready
                     if (isMapReady && googleMap != null) {
@@ -298,46 +293,25 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                                         .position(blackspot.location)
                                         .title("Blackspot")
                                         .snippet(blackspot.description)
-                                        .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_RED))
+                                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
                                 )
                             }
                         }
-                        // Ensure the current location marker is always created or updated
+                        // Update the single current location marker
                         if (currentLocationMarker == null) {
-                            currentLocationMarker = if (markerIconBitmap != null) {
-                                googleMap?.addMarker(
-                                    MarkerOptions()
-                                        .position(currentLatLng)
-                                        .title("Current Location")
-                                        .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.fromBitmap(markerIconBitmap!!))
-                                )
-                            } else {
-                                Log.w("DashboardActivity", "Failed to load custom icon in onLocationResult, using default marker")
-                                googleMap?.addMarker(
-                                    MarkerOptions()
-                                        .position(currentLatLng)
-                                        .title("Current Location")
-                                        .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_RED))
-                                )
-                            }
+                            currentLocationMarker = googleMap?.addMarker(
+                                MarkerOptions()
+                                    .position(currentLatLng)
+                                    .title("Current Location")
+                                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)) // Use default blue marker
+                            )
                             Log.d("DashboardActivity", "Created currentLocationMarker in onLocationResult: $currentLocationMarker")
                         } else {
                             currentLocationMarker?.position = currentLatLng
-                            // Only re-set the icon if it hasn't been set or if the marker was removed
-                            if (currentLocationMarker?.isVisible == false || currentLocationMarker?.tag == null) {
-                                if (markerIconBitmap != null) {
-                                    currentLocationMarker?.setIcon(com.google.android.gms.maps.model.BitmapDescriptorFactory.fromBitmap(markerIconBitmap!!))
-                                    currentLocationMarker?.tag = "set" // Mark as icon set
-                                } else {
-                                    Log.w("DashboardActivity", "Failed to load custom icon in onLocationResult, using default marker")
-                                    currentLocationMarker?.setIcon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_RED))
-                                    currentLocationMarker?.tag = "set"
-                                }
-                            }
                             Log.d("DashboardActivity", "Updated currentLocationMarker position in onLocationResult: $currentLatLng, visible: ${currentLocationMarker?.isVisible}")
                         }
                         if (!isSimulating) {
-                            // Only move the camera if not simulating (simulation handles camera movement)
+                            // Only move the camera if not simulating
                             googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 15f))
                         }
                     } else {
@@ -348,8 +322,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                     fetchWeatherData(location.latitude, location.longitude)
 
                     // Check proximity to blackspots
-//                    checkProximityToBlackspots(currentLatLng) //disabled and switched to backend API below
-
+                    checkProximityViaBackend(currentLatLng)
                 } ?: run {
                     Log.w("DashboardActivity", "Location update received but location is null")
                     Toast.makeText(this@DashboardActivity, "Unable to get current location, please ensure GPS is enabled", Toast.LENGTH_LONG).show()
@@ -357,7 +330,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
 
-         // Settings Icon Button
+        // Settings Icon Button
         val settingsIconButton = findViewById<ImageButton>(R.id.settingsIconButton)
         settingsIconButton.setOnClickListener {
             val intent = Intent(this, SettingsActivity::class.java)
@@ -367,13 +340,12 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         pickRouteButton = findViewById<Button>(R.id.pickRouteButton)
         simulateJourneyButton = findViewById<Button>(R.id.simulateJourneyButton)
 
-        pickRouteButton.isEnabled = false  // Disable until location is ready
+        pickRouteButton.isEnabled = false // Disable until location is ready
 
         pickRouteButton.setOnClickListener {
             Log.d("DashboardActivity", "Pick Route clicked, currentLocation: $currentLocation")
-            // Clear the previous route before fetching a new one
-            isRouteDisplayed = false // set is route displayed to false
-            googleMap?.clear() // clear the current map
+            isRouteDisplayed = false // Set is route displayed to false
+            googleMap?.clear() // Clear the current map
             currentLocationMarker = null
             polylinePoints = emptyList()
             val intent = Intent(this, RouteInputActivity::class.java)
@@ -407,11 +379,12 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                 pickRouteButton.isEnabled = true
                 Log.d("DashboardActivity", "Restored currentLocation: $currentLocation")
             }
-
         }
-// Automatically fetch location, weather, and speed on start
+
+        // Automatically fetch location, weather, and speed on start
         Log.d("DashboardActivity", "Checking location permissions on create")
         checkLocationPermission()
+        fetchBlackspots() // Fetch blackspots on activity start
 
     }
 
@@ -448,7 +421,8 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                 Toast.makeText(this, "Failed to fetch username: ${e.message}", Toast.LENGTH_SHORT).show()
             }
     }
-//saves currentLocation’s latitude and longitude in a Bundle before the activity is destroyed
+
+    // Saves currentLocation’s latitude and longitude in a Bundle before the activity is destroyed
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         currentLocation?.let {
@@ -457,7 +431,8 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             Log.d("DashboardActivity", "Saved currentLocation: $currentLocation")
         }
     }
-//restores currentLocation from the Bundle when the activity is recreated
+
+    // Restores currentLocation from the Bundle when the activity is recreated
     override fun onRestoreInstanceState(savedInstanceState: Bundle) {
         super.onRestoreInstanceState(savedInstanceState)
         val lat = savedInstanceState.getDouble("currentLat", -1.0)
@@ -471,14 +446,13 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun checkLocationPermission() {
-
         val fineLocationGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val coarseLocationGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
         if (fineLocationGranted && coarseLocationGranted) {
             // Permission granted, get location
             getCurrentLocation()
-        }else{
+        } else {
             // Request permission
             if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_FINE_LOCATION) ||
                 ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_COARSE_LOCATION)) {
@@ -504,9 +478,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                 )
             }
         }
-
     }
-
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
@@ -558,75 +530,6 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         return earthRadius * c
     }
 
-//    private fun checkProximityToBlackspots(userLocation: LatLng) {
-//        // Check if proximity notifications are enabled
-//        if (!isProximityNotificationsEnabled) {
-//            Log.d("DashboardActivity", "Proximity notifications are disabled, skipping blackspot check")
-//            return
-//        }
-//
-//        blackspots.forEach { blackspot ->
-//            val distance = calculateDistance(userLocation, blackspot.location)
-//            if (distance <= ALERT_DISTANCE_THRESHOLD && lastAlertedBlackspot != blackspot.id) {
-//                // Dismiss any existing dialog
-//                alertDialog?.dismiss()
-//
-//                // Show alert dialog for nearby blackspot
-//                val message = "You are near a blackspot: ${blackspot.description}\nDistance: ${"%.1f".format(distance)} meters"
-//                alertDialog = AlertDialog.Builder(this)
-//                    .setTitle("Blackspot Warning")
-//                    .setMessage(message)
-//                    .setPositiveButton("Dismiss") { dialog, _ ->
-//                        lastAlertedBlackspot = blackspot.id
-//                        dialog.dismiss()
-//                    }
-//                    .setCancelable(false) // Prevent dismissal by tapping outside
-//                    .create()
-//                alertDialog?.show()
-//
-//                // Play alert sound
-//                try {
-//                    if (!mediaPlayer.isPlaying) {
-//                        mediaPlayer.start()
-//                    }
-//                } catch (e: IllegalStateException) {
-//                    Log.e("DashboardActivity", "Error playing alert sound due to illegal state: ${e.message}", e)
-//                    // Reinitialize MediaPlayer if it's in an illegal state
-//                    mediaPlayer.release()
-//                    mediaPlayer = MediaPlayer.create(this, R.raw.ring2)
-//                    mediaPlayer.setOnCompletionListener { mp ->
-//                        try {
-//                            mp.stop()
-//                            mp.reset()
-//                            mp.setDataSource(this@DashboardActivity, android.net.Uri.parse("android.resource://${packageName}/${R.raw.ring2}"))
-//                            mp.prepare()
-//                        } catch (e: Exception) {
-//                            Log.e("DashboardActivity", "Error resetting MediaPlayer after completion: ${e.message}", e)
-//                        }
-//                    }
-//                    mediaPlayer.start()
-//                } catch (e: Exception) {
-//                    Log.e("DashboardActivity", "Error playing alert sound: ${e.message}", e)
-//                }
-//
-//                // Trigger vibration
-//                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-//                    vibrator.vibrate(VibrationEffect.createOneShot(VIBRATION_DURATION, VibrationEffect.DEFAULT_AMPLITUDE))
-//                } else {
-//                    @Suppress("DEPRECATION")
-//                    vibrator.vibrate(VIBRATION_DURATION)
-//                }
-//
-//                Log.d("DashboardActivity", "Blackspot alert: ${blackspot.description} at distance $distance meters")
-//            } else if (distance > ALERT_DISTANCE_THRESHOLD && lastAlertedBlackspot == blackspot.id) {
-//                // Reset alert if user moves away from the blackspot
-//                lastAlertedBlackspot = null
-//                alertDialog?.dismiss()
-//            }
-//        }
-//    }
-
-
     private fun startJourneySimulation() {
         isSimulating = true
         simulateJourneyButton.isEnabled = false
@@ -646,7 +549,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                         .position(blackspot.location)
                         .title("Blackspot")
                         .snippet(blackspot.description)
-                        .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_RED))
+                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
                 )
             }
             if (currentLocation == null && polylinePoints.isNotEmpty()) {
@@ -654,22 +557,12 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                 Log.d("DashboardActivity", "Initialized currentLocation to first polyline point: $currentLocation")
             }
             if (currentLocationMarker == null && currentLocation != null) {
-                currentLocationMarker = if (markerIconBitmap != null) {
-                    googleMap?.addMarker(
-                        MarkerOptions()
-                            .position(currentLocation!!)
-                            .title("Current Location")
-                            .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.fromBitmap(markerIconBitmap!!))
-                    )
-                } else {
-                    Log.w("DashboardActivity", "Failed to load custom icon in startJourneySimulation, using default marker")
-                    googleMap?.addMarker(
-                        MarkerOptions()
-                            .position(currentLocation!!)
-                            .title("Current Location")
-                            .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_RED))
-                    )
-                }
+                currentLocationMarker = googleMap?.addMarker(
+                    MarkerOptions()
+                        .position(currentLocation!!)
+                        .title("Current Location")
+                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)) // Use default blue marker
+                )
                 Log.d("DashboardActivity", "Initialized currentLocationMarker in startJourneySimulation at position: $currentLocation, marker: $currentLocationMarker")
             }
         } else {
@@ -739,9 +632,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
                     // Interpolate position
                     if (currentIndex < polylinePoints.size - 1) {
-                        currentLocation = interpolate(lastPoint, nextPoint,
-                            fraction.coerceIn(0.0f, 1.0f).toDouble()
-                        )
+                        currentLocation = SphericalUtil.interpolate(lastPoint, nextPoint, fraction.coerceIn(0.0f, 1.0f).toDouble())
                     }
 
                     locationText.text = "Location: Lat ${"%.4f".format(currentLocation!!.latitude)}, Lng ${"%.4f".format(currentLocation!!.longitude)}"
@@ -777,18 +668,10 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
 
-        // Helper function to interpolate between two LatLng points
-        fun interpolate(start: LatLng, end: LatLng, fraction: Float): LatLng {
-            val lat = start.latitude + (end.latitude - start.latitude) * fraction
-            val lng = start.longitude + (end.longitude - start.longitude) * fraction
-            return LatLng(lat, lng)
-        }
-
         simulationHandler.post(simulationRunnable!!)
     }
 
-
-    // fetch weather from API
+    // Fetch weather from API
     // Update fetchWeatherData to store current weather
     private fun fetchWeatherData(latitude: Double, longitude: Double) {
         Log.d("DashboardActivity", "Fetching weather data for lat=$latitude, lon=$longitude")
@@ -832,7 +715,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         })
     }
 
-    private fun fetchRoute(start: LatLng, end: LatLng) {
+    private fun fetchRoute(start: LatLng, end: LatLng, weatherDate: String) {
         if (!isMapReady || googleMap == null) {
             Log.e("DashboardActivity", "Cannot fetch route: Map not ready")
             Toast.makeText(this, "Map not ready, please try again", Toast.LENGTH_SHORT).show()
@@ -841,14 +724,13 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
         val origin = "${start.latitude},${start.longitude}"
         val destination = "${end.latitude},${end.longitude}"
-        Log.d("DashboardActivity", "Fetching route from $origin to $destination")
+        Log.d("DashboardActivity", "Fetching route from $origin to $destination with weather date: $weatherDate")
         directionsApiService.getDirections(origin, destination, googleMapsApiKey).enqueue(object : Callback<DirectionsResponse> {
             override fun onResponse(call: Call<DirectionsResponse>, response: Response<DirectionsResponse>) {
                 if (response.isSuccessful) {
                     val directionsResponse = response.body()
                     if (directionsResponse != null) {
                         Log.d("DashboardActivity", "Directions API response status: ${directionsResponse.status}")
-                        Log.d("DashboardActivity", "Directions API response routes: ${directionsResponse.routes}")
                         if (directionsResponse.status == "OK" && directionsResponse.routes.isNotEmpty()) {
                             val route = directionsResponse.routes[0]
                             val points = route.overview_polyline.points
@@ -863,63 +745,42 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                                         .width(10f)
                                     googleMap?.addPolyline(polylineOptions)
 
-                                    // Ensure currentLocation is set to the start of the route if null
-                                    if (currentLocation == null) {
-                                        currentLocation = start
-                                        Log.d("DashboardActivity", "Set currentLocation to route start: $currentLocation")
+                                    // Clear and add navigation icon at start location
+                                    googleMap?.clear()
+                                    googleMap?.addMarker(
+                                        MarkerOptions()
+                                            .position(start)
+                                            .title("Start Location")
+                                            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)) // Use default green marker
+                                    )
+
+                                    // Update current location marker with default blue marker
+                                    currentLocation?.let { loc ->
+                                        currentLocationMarker?.remove() // Remove existing marker if any
+                                        currentLocationMarker = googleMap?.addMarker(
+                                            MarkerOptions()
+                                                .position(loc)
+                                                .title("Current Location")
+                                                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)) // Use default blue marker
+                                        )
                                     }
 
-                                    // Redraw current location marker and blackspots
-                                    if (currentLocationMarker == null && currentLocation != null) {
-                                        currentLocationMarker = if (markerIconBitmap != null) {
-                                            googleMap?.addMarker(
-                                                MarkerOptions()
-                                                    .position(currentLocation!!)
-                                                    .title("Current Location")
-                                                    .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.fromBitmap(markerIconBitmap!!))
-                                            )
-                                        } else {
-                                            Log.w("DashboardActivity", "Failed to load custom icon in fetchRoute, using default marker")
-                                            googleMap?.addMarker(
-                                                MarkerOptions()
-                                                    .position(currentLocation!!)
-                                                    .title("Current Location")
-                                                    .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_RED))
-                                            )
-                                        }
-                                        Log.d("DashboardActivity", "Created currentLocationMarker in fetchRoute: $currentLocationMarker")
-                                    } else if (currentLocationMarker != null) {
-                                        currentLocationMarker?.position = currentLocation!!
-                                        if (markerIconBitmap != null) {
-                                            currentLocationMarker?.setIcon(com.google.android.gms.maps.model.BitmapDescriptorFactory.fromBitmap(markerIconBitmap!!))
-                                        } else {
-                                            Log.w("DashboardActivity", "Failed to load custom icon in fetchRoute, using default marker")
-                                            currentLocationMarker?.setIcon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_RED))
-                                        }
-                                        Log.d("DashboardActivity", "Updated currentLocationMarker in fetchRoute: $currentLocationMarker")
-                                    } else {
-                                        Log.w("DashboardActivity", "Cannot create currentLocationMarker in fetchRoute: currentLocation is null")
-                                    }
                                     blackspots.forEach { blackspot ->
                                         googleMap?.addMarker(
                                             MarkerOptions()
                                                 .position(blackspot.location)
                                                 .title("Blackspot")
                                                 .snippet(blackspot.description)
-                                                .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_RED))
+                                                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
                                         )
                                     }
 
-                                    // Update camera to show the entire route with a closer zoom
-                                    val boundsBuilder = com.google.android.gms.maps.model.LatLngBounds.Builder()
+                                    val boundsBuilder = LatLngBounds.Builder()
                                     polylinePoints.forEach { boundsBuilder.include(it) }
                                     val bounds = boundsBuilder.build()
                                     googleMap?.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 200))
 
-                                    // Set the route displayed flag
                                     isRouteDisplayed = true
-
-                                    // Enable the Simulate Journey button
                                     simulateJourneyButton.isEnabled = true
                                 } else {
                                     Log.w("DashboardActivity", "No polyline points decoded")
@@ -973,7 +834,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                             .position(blackspotLocation)
                             .title("Blackspot")
                             .snippet(description)
-                            .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_RED))
+                            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
                     )
                     Log.d("DashboardActivity", "Added blackspot marker: $description at $blackspotLocation")
                 }
@@ -1182,47 +1043,40 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         makeRequest()
     }
 
-
-    override fun onMapReady(map: GoogleMap) {
-        googleMap = map
-        googleMap?.uiSettings?.isZoomControlsEnabled = true
+    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
+    override fun onMapReady(googleMap: GoogleMap) {
+        this.googleMap = googleMap
         isMapReady = true
-        Log.d("DashboardActivity", "Map is ready")
 
-        // Update map with current location if available
-        currentLocation?.let { currentLatLng ->
-            googleMap?.clear()
-            currentLocationMarker = if (markerIconBitmap != null) {
-                googleMap?.addMarker(
-                    MarkerOptions()
-                        .position(currentLatLng)
-                        .title("Current Location")
-                        .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.fromBitmap(markerIconBitmap!!))
-                )
-            } else {
-                // Fallback to default marker if the bitmap conversion fails
-                Log.w("DashboardActivity", "Failed to load custom icon in onMapReady, using default marker")
-                googleMap?.addMarker(
-                    MarkerOptions()
-                        .position(currentLatLng)
-                        .title("Current Location")
-                        .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_RED))
-                )
-            }
-            Log.d("DashboardActivity", "Created currentLocationMarker in onMapReady: $currentLocationMarker")
-            googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 15f))
+        // Set map type and UI settings
+        googleMap.mapType = GoogleMap.MAP_TYPE_NORMAL
+        googleMap.uiSettings.isZoomControlsEnabled = true
+        googleMap.uiSettings.isMyLocationButtonEnabled = true
+
+        // Disable my-location blue dot to avoid extra marker
+        googleMap.isMyLocationEnabled = false
+
+        // Move camera to current location if available
+        currentLocation?.let { location ->
+            googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(location, 15f))
+            currentLocationMarker = googleMap.addMarker(
+                MarkerOptions()
+                    .position(location)
+                    .title("Current Location")
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)) // Use default blue marker
+            )
+            Log.d("DashboardActivity", "Moved map to current location: $location")
         }
 
-        // Process any pending route request
-        pendingRouteRequest?.let { (start, end) ->
-            Log.d("DashboardActivity", "Processing pending route request: start=$start, end=$end")
-            fetchRoute(start, end)
+        fetchBlackspots()
+
+        // Handle pending route request if any
+        pendingRouteRequest?.let { (start, end, weatherDate) ->
+            fetchRoute(start, end, weatherDate)
             pendingRouteRequest = null
         }
-
-        // Fetch blackspots after map is ready
-        fetchBlackspots()
     }
+
     // MapView lifecycle methods
     override fun onResume() {
         super.onResume()
@@ -1242,6 +1096,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         isProximityNotificationsEnabled = sharedPreferences.getBoolean("proximity_notifications_enabled", true)
         Log.d("DashboardActivity", "Proximity notifications enabled on resume: $isProximityNotificationsEnabled")
     }
+
     override fun onPause() {
         super.onPause()
         mapView.onPause()
@@ -1261,6 +1116,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             mediaPlayer.stop()
         }
     }
+
     override fun onDestroy() {
         super.onDestroy()
         mapView.onDestroy()
@@ -1273,9 +1129,9 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         // Clean up the marker icon Bitmap
         markerIconBitmap = null
     }
+
     override fun onLowMemory() {
         super.onLowMemory()
         mapView.onLowMemory()
     }
-
 }

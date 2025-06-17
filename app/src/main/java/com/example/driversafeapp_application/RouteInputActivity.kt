@@ -1,6 +1,7 @@
 package com.example.driversafeapp_application
 
 import android.Manifest
+import android.app.DatePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -26,6 +27,9 @@ import com.google.android.material.textfield.TextInputEditText
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 class RouteInputActivity : AppCompatActivity() {
 
@@ -33,6 +37,7 @@ class RouteInputActivity : AppCompatActivity() {
     private val googleMapsApiKey = "AIzaSyB-u93Huo2uyhIVLPsyNxNW7hg5EMb7CsM" // Replace with your API key
     private lateinit var startLocationField: TextInputEditText
     private lateinit var destinationField: TextInputEditText
+    private lateinit var weatherDateField: TextInputEditText // Initialized here
     private var startLatLng: LatLng? = null
     private var destLatLng: LatLng? = null
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -48,8 +53,11 @@ class RouteInputActivity : AppCompatActivity() {
         // Locate UI elements
         startLocationField = findViewById(R.id.startLocationField)
         destinationField = findViewById(R.id.destinationField)
+        weatherDateField = findViewById(R.id.weatherDateField) // Added initialization
         val confirmButton = findViewById<Button>(R.id.pickDestination)
         val getCurrentLocationButton = findViewById<Button>(R.id.getCurrentLocationButton)
+        val pickWeatherDateButton = findViewById<Button>(R.id.pickWeatherDateButton)
+        val clearStartLocationButton = findViewById<Button>(R.id.clearStartLocationButton)
 
         // Initialize FusedLocationProviderClient
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
@@ -70,6 +78,12 @@ class RouteInputActivity : AppCompatActivity() {
             Log.w("RouteInputActivity", "No current location provided")
         }
 
+        // Set default weather date to current date
+        val calendar = Calendar.getInstance()
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        weatherDateField.setText(dateFormat.format(calendar.time))
+        Log.d("RouteInputActivity", "Default weather date set to: ${weatherDateField.text}")
+
         // Get Current Location Button (optional refresh)
         getCurrentLocationButton.setOnClickListener {
             if (checkLocationPermission()) {
@@ -79,13 +93,36 @@ class RouteInputActivity : AppCompatActivity() {
             }
         }
 
+        pickWeatherDateButton.setOnClickListener {
+            val calendar = Calendar.getInstance()
+            val year = calendar.get(Calendar.YEAR)
+            val month = calendar.get(Calendar.MONTH)
+            val day = calendar.get(Calendar.DAY_OF_MONTH)
+
+            DatePickerDialog(this, { _, selectedYear, selectedMonth, selectedDay ->
+                val selectedCalendar = Calendar.getInstance().apply {
+                    set(selectedYear, selectedMonth, selectedDay)
+                }
+                weatherDateField.setText(dateFormat.format(selectedCalendar.time))
+                Log.d("RouteInputActivity", "Weather date updated to: ${weatherDateField.text}")
+            }, year, month, day).show()
+        }
+
+        // Clear Start Location Button
+        clearStartLocationButton.setOnClickListener {
+            startLocationField.text!!.clear()
+            startLatLng = null // Reset startLatLng when clearing
+            Log.d("RouteInputActivity", "Cleared start location field")
+        }
+
         // Confirm Route Button
         confirmButton.setOnClickListener {
             val startText = startLocationField.text.toString().trim()
             val destText = destinationField.text.toString().trim()
+            val weatherDate = weatherDateField.text.toString().trim()
 
-            if (startText.isEmpty() || destText.isEmpty()) {
-                Toast.makeText(this, "Please enter both start and destination locations", Toast.LENGTH_SHORT).show()
+            if (startText.isEmpty() || destText.isEmpty() || weatherDate.isEmpty()) {
+                Toast.makeText(this, "Please enter all fields: start, destination, and weather date", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
@@ -124,6 +161,7 @@ class RouteInputActivity : AppCompatActivity() {
                                             resultIntent.putExtra("startLng", startLatLng!!.longitude)
                                             resultIntent.putExtra("destLat", destLatLng!!.latitude)
                                             resultIntent.putExtra("destLng", destLatLng!!.longitude)
+                                            resultIntent.putExtra("weatherDate", weatherDate)
                                             setResult(RESULT_OK, resultIntent)
                                         } else {
                                             Log.w("RouteInputActivity", "Geocoding failed for destination: status=${geoCodingResponseDest?.status}")
