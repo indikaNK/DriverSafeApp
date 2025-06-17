@@ -22,20 +22,24 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal">
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/getCurrentLocationButton"
-            android:layout_width="wrap_content"
+            android:layout_width="74dp"
             android:layout_height="wrap_content"
-            android:text="Get Current Location"
-            android:layout_weight="1" />
-
-        <Button
-            android:id="@+id/clearStartLocationButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Clear"
+            android:layout_marginEnd="8dp"
             android:layout_weight="1"
-            android:layout_gravity="end" />
+            android:text="Get Current Location" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/clearStartLocationButton"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="end"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:backgroundTint="@color/red"
+            android:text="CLEAR"
+            android:textAllCaps="true" />
     </LinearLayout>
 
     <TextView
@@ -63,7 +67,7 @@
         android:inputType="date"
         android:focusable="false" />
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/pickWeatherDateButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -71,11 +75,12 @@
         android:text="Pick Date"
         android:textAlignment="textStart" />
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/pickDestination"
         android:layout_width="385dp"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
+        android:backgroundTint="@color/teal_700"
         android:text="Confirm Route" />
 
 </LinearLayout>
