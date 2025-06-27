@@ -42,4 +42,14 @@
         android:layout_height="wrap_content"
         android:text="new User ? sign Up here"/>
 
+    <TextView
+        android:id="@+id/forgotPasswordLink"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:onClick="openForgotPassword"
+        android:text="Forgot Password?"
+        android:textColor="@android:color/holo_blue_dark"
+        android:padding="16dp"
+        android:textSize="14sp" />
+
 </LinearLayout>

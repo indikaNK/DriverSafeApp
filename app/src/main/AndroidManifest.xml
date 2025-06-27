@@ -43,6 +43,10 @@
         <activity android:name=".SettingsActivity" />
         <activity android:name=".RegisterActivity" />
         <activity android:name=".RouteInputActivity" />
+        <activity
+            android:name=".ForgotPasswordActivity"
+            android:label="Forgot Password">
+        </activity>
     </application>
 
 </manifest>
