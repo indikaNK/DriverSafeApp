@@ -85,7 +85,8 @@ dependencies {
     implementation ("com.google.android.libraries.places:places:2.6.0")
 
 
-
+    implementation ("com.google.android.material:material:1.9.0")
+    implementation ("androidx.coordinatorlayout:coordinatorlayout:1.2.0")
 
 }
 

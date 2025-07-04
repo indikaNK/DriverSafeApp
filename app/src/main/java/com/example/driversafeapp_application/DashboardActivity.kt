@@ -2,6 +2,7 @@ package com.example.driversafeapp_application
 
 // Maps Google
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -75,6 +76,13 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
+
+// Message window
+import com.google.android.material.snackbar.Snackbar
+import android.view.View
+import android.view.LayoutInflater
+import android.widget.RelativeLayout
+import androidx.coordinatorlayout.widget.CoordinatorLayout
 
 class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -663,7 +671,6 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                     nearestBlackspotDistance = Double.MAX_VALUE
                     nearestBlackspotId = null
                     lastAlertedBlackspot = null
-                    alertDialog?.dismiss()
                 }
             }
         }
@@ -849,6 +856,9 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     // Update checkProximityViaBackend to store nearest blackspot distance
+    // Update checkProximityViaBackend to use Snackbar with 3-second auto-dismiss
+
+    // Update checkProximityViaBackend to use Snackbar with adjusted text size and 5-second auto-dismiss
     private fun checkProximityViaBackend(userLocation: LatLng) {
         Log.d("DashboardActivity", "Entered checkProximityViaBackend with isProximityNotificationsEnabled: $isProximityNotificationsEnabled, location: $userLocation")
         if (!isProximityNotificationsEnabled) {
@@ -883,18 +893,29 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                                     .addOnSuccessListener { document ->
                                         if (document != null && document.exists()) {
                                             val description = document.getString("description") ?: "Unknown blackspot"
-                                            alertDialog?.dismiss()
-                                            val message = "You are near a blackspot: $description\nDistance: ${"%.1f".format(distance)} meters"
-                                            alertDialog = AlertDialog.Builder(this@DashboardActivity)
-                                                .setTitle("Blackspot Warning")
-                                                .setMessage(message)
-                                                .setPositiveButton("Dismiss") { dialog, _ ->
-                                                    lastAlertedBlackspot = blackspotId
-                                                    dialog.dismiss()
-                                                }
-                                                .setCancelable(false)
-                                                .create()
-                                            alertDialog?.show()
+                                            lastAlertedBlackspot = blackspotId
+
+                                            // Show Snackbar at the top with adjusted text size and 5-second auto-dismiss
+                                            val snackbar = Snackbar.make(
+                                                findViewById(android.R.id.content),
+                                                ": $description Distance: ${"%.1f".format(distance)}m",
+                                                Snackbar.LENGTH_INDEFINITE
+                                            )
+                                            snackbar.setBackgroundTint(ContextCompat.getColor(this@DashboardActivity, R.color.red))
+                                            snackbar.setTextColor(ContextCompat.getColor(this@DashboardActivity, android.R.color.white)) // Ensure readable text
+                                            snackbar.setAnchorView(findViewById(R.id.mapView)) // Anchor to map view for top positioning
+                                            snackbar.setText(": $description Distance: ${"%.1f".format(distance)}m") // Set text explicitly
+                                            snackbar.setTextMaxLines(1)
+
+                                            // Reduced text size to fit content (adjust as needed)
+                                            snackbar.show()
+
+                                            // Auto-dismiss after 5 seconds
+                                            Handler(Looper.getMainLooper()).postDelayed({
+                                                snackbar.dismiss()
+                                            }, 5000)
+
+                                            // Vibration and sound
                                             try {
                                                 if (!mediaPlayer.isPlaying) mediaPlayer.start()
                                             } catch (e: IllegalStateException) {
@@ -934,7 +955,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                             nearestBlackspotId = null
                             if (lastAlertedBlackspot != null) {
                                 lastAlertedBlackspot = null
-                                alertDialog?.dismiss()
+                                // No need to dismiss Snackbar manually here
                             }
                         }
                     } else {
@@ -1102,8 +1123,6 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         mapView.onPause()
         // Stop location updates when activity is paused
         fusedLocationClient.removeLocationUpdates(locationCallback)
-        // Dismiss any active alert dialog
-        alertDialog?.dismiss()
         // Stop simulation if in progress
         simulationRunnable?.let { simulationHandler.removeCallbacks(it) }
         isSimulating = false

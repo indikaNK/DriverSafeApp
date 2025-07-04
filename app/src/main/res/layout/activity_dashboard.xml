@@ -17,8 +17,7 @@
         android:scaleType="fitCenter"
         android:padding="8dp"/>
 
-    <!-- Map View -->
-
+    <!-- Username Text -->
     <TextView
         android:id="@+id/usernameText"
         android:layout_width="160dp"
@@ -30,6 +29,7 @@
         android:textSize="18sp"
         android:textStyle="bold" />
 
+    <!-- Map View -->
     <com.google.android.gms.maps.MapView
         android:id="@+id/mapView"
         android:layout_width="389dp"
@@ -69,6 +69,7 @@
             android:text="Weather: Not available"
             android:textSize="16sp"
             android:layout_marginTop="8dp"/>
+
         <Button
             android:id="@+id/simulateJourneyButton"
             android:layout_width="wrap_content"
@@ -79,14 +80,9 @@
             android:textColor="@android:color/white"
             android:enabled="false" /> <!-- Disabled until route is calculated -->
 
-
-
-
     </LinearLayout>
-    
 
-
-    <!--  Pick route Button -->
+    <!-- Pick Route Button -->
     <Button
         android:id="@+id/pickRouteButton"
         android:layout_width="match_parent"
@@ -94,7 +90,5 @@
         android:layout_below="@id/infoLayout"
         android:layout_marginTop="16dp"
         android:text="Pick a Route Here" />
-
-
 
 </RelativeLayout>
