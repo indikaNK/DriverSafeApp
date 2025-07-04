@@ -12,5 +12,8 @@
         <item name="colorOnSecondary">@color/black</item>
         <!-- Status bar color -->
         <item name="android:statusBarColor">@color/purple_700</item>
+        <item name="android:windowBackground">@drawable/background_image</item> <!-- Custom background image -->
+        <!-- Fallback color if image is not set -->
+<!--        <item name="android:background">@color/white</item>-->
     </style>
 </resources>

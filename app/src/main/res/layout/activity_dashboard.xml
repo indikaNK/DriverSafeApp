@@ -2,7 +2,9 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="@drawable/dashboard_background"
+    >
 
     <!-- Settings Icon Button (Top Left) -->
     <ImageButton
@@ -52,23 +54,26 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Location: Not available"
-            android:textSize="16sp"/>
+            android:textSize="16sp"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/speedText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
             android:text="Speed: Not available"
             android:textSize="16sp"
-            android:layout_marginTop="8dp"/>
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/weatherText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
             android:text="Weather: Not available"
             android:textSize="16sp"
-            android:layout_marginTop="8dp"/>
+            android:textStyle="bold" />
 
         <Button
             android:id="@+id/simulateJourneyButton"
