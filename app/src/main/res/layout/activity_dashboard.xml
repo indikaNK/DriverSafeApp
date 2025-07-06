@@ -3,8 +3,18 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="16dp"
-    android:background="@drawable/dashboard_background"
-    >
+    android:background="@drawable/dashboard_background">
+
+    <ProgressBar
+        android:id="@+id/loadingProgress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="60dp"
+    android:visibility="gone"
+    android:indeterminate="true" />
 
     <!-- Settings Icon Button (Top Left) -->
     <ImageButton
@@ -26,7 +36,7 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="50dp"
         android:layout_marginTop="16dp"
-        android:text="Welcome To Drivasafe, User"
+        android:text="Welcome To Drivesafe, User"
         android:textColor="@color/purple_500"
         android:textSize="18sp"
         android:textStyle="bold" />
@@ -55,25 +65,25 @@
             android:layout_height="wrap_content"
             android:text="Location: Not available"
             android:textSize="16sp"
-            android:textStyle="bold" />
+            android:textColor="@android:color/black"/>
 
         <TextView
             android:id="@+id/speedText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
             android:text="Speed: Not available"
             android:textSize="16sp"
-            android:textStyle="bold" />
+            android:layout_marginTop="8dp"
+            android:textColor="@android:color/black"/>
 
         <TextView
             android:id="@+id/weatherText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
             android:text="Weather: Not available"
             android:textSize="16sp"
-            android:textStyle="bold" />
+            android:layout_marginTop="8dp"
+            android:textColor="@android:color/black"/>
 
         <Button
             android:id="@+id/simulateJourneyButton"
@@ -83,11 +93,10 @@
             android:text="Simulate Journey"
             android:backgroundTint="@android:color/holo_green_dark"
             android:textColor="@android:color/white"
-            android:enabled="false" /> <!-- Disabled until route is calculated -->
+            android:enabled="false" />
 
     </LinearLayout>
 
-    <!-- Pick Route Button -->
     <Button
         android:id="@+id/pickRouteButton"
         android:layout_width="match_parent"

@@ -9,7 +9,9 @@ import android.location.Location
 import android.os.Bundle
 import android.os.Looper
 import android.util.Log
+import android.view.View
 import android.widget.Button
+import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -43,6 +45,10 @@ class RouteInputActivity : AppCompatActivity() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private val LOCATION_PERMISSION_REQUEST_CODE = 1001
 
+    //loading screen
+    private lateinit var loadingProgress: ProgressBar
+    private var pendingTasks = 0
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_route_input)
@@ -58,6 +64,8 @@ class RouteInputActivity : AppCompatActivity() {
         val getCurrentLocationButton = findViewById<Button>(R.id.getCurrentLocationButton)
         val pickWeatherDateButton = findViewById<Button>(R.id.pickWeatherDateButton)
         val clearStartLocationButton = findViewById<Button>(R.id.clearStartLocationButton)
+        //loading
+        loadingProgress = findViewById(R.id.loadingProgress)
 
         // Initialize FusedLocationProviderClient
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
@@ -205,7 +213,23 @@ class RouteInputActivity : AppCompatActivity() {
         }
     }
 
+    private fun showLoading() {
+        loadingProgress.visibility = View.VISIBLE
+    }
+
+    private fun hideLoading() {
+        loadingProgress.visibility = View.GONE
+    }
+
+    private fun checkAllTasksComplete() {
+        if (pendingTasks <= 0) {
+            hideLoading()
+        }
+    }
+
     private fun checkLocationPermission(): Boolean {
+
+
         return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED &&
                 ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
     }
@@ -221,11 +245,14 @@ class RouteInputActivity : AppCompatActivity() {
                 getCurrentLocation()
             } else {
                 Toast.makeText(this, "Location permission denied", Toast.LENGTH_SHORT).show()
+                hideLoading()
             }
         }
     }
 
     private fun getCurrentLocation() {
+        showLoading()
+        pendingTasks++ // Increment for location task
         if (checkLocationPermission()) {
             val locationRequest = LocationRequest.create().apply {
                 interval = 10000
@@ -243,11 +270,15 @@ class RouteInputActivity : AppCompatActivity() {
                             Log.d("RouteInputActivity", "Updated start location to: $latLng")
                         }
                         fusedLocationClient.removeLocationUpdates(this) // Stop updates after getting location
+                        pendingTasks-- // Decrement after successful location fetch
+                        checkAllTasksComplete()
                     } ?: run {
                         runOnUiThread {
                             Toast.makeText(this@RouteInputActivity, "Failed to get current location", Toast.LENGTH_SHORT).show()
                         }
                         Log.e("RouteInputActivity", "No location result from FusedLocationProvider")
+                        pendingTasks-- // Decrement after successful location fetch
+                        checkAllTasksComplete()
                     }
                 }
             }, Looper.getMainLooper())

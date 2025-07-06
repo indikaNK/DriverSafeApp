@@ -81,8 +81,11 @@ import kotlin.math.sqrt
 import com.google.android.material.snackbar.Snackbar
 import android.view.View
 import android.view.LayoutInflater
+import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.RelativeLayout
 import androidx.coordinatorlayout.widget.CoordinatorLayout
+import com.bumptech.glide.Glide
 
 class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -152,6 +155,10 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private var journeyApiHandler: Handler? = null
     private var journeyApiRunnable: Runnable? = null
+
+    //loading variables
+    private lateinit var loadingProgress: ProgressBar
+    private var pendingTasks = 0 // Track number of ongoing tasks
 
     // Utility function to convert a drawable resource to a Bitmap
     private fun drawableToBitmap(context: Context, drawableId: Int): Bitmap? {
@@ -264,6 +271,11 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         weatherText = findViewById(R.id.weatherText)
         usernameText = findViewById(R.id.usernameText) // Initialize the username TextView
 
+        //laoding screen
+        loadingProgress = findViewById(R.id.loadingProgress)
+
+
+
         // Initialize the marker icon Bitmap
         markerIconBitmap = drawableToBitmap(this, android.R.drawable.ic_menu_mylocation)
 
@@ -271,6 +283,10 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         weatherApiService = RetrofitClient.weatherApiService
         directionsApiService = RetrofitClient.directionsApiService
         backendApiService = RetrofitClient.backendApiService // Initialize backend API service
+
+        // Show loading indicator
+        showLoading()
+        pendingTasks = 3 // initialize with 3 tasks: location, weather & blackspots
 
         // Initialize LocationCallback
         locationCallback = object : LocationCallback() {
@@ -286,6 +302,10 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
                     currentLocation = currentLatLng
                     isLocationReady = true
+
+                    //hide loading screen when location ready
+                    hideLoading()
+
                     Log.d("DashboardActivity", "Fresh location received: $currentLocation, enabling Pick Route button")
                     pickRouteButton.isEnabled = true // Enable button now that location is ready
 
@@ -331,9 +351,15 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
                     // Check proximity to blackspots
                     checkProximityViaBackend(currentLatLng)
+                    // Decrement task count for location
+                    pendingTasks--
+                    checkAllTasksComplete()
                 } ?: run {
                     Log.w("DashboardActivity", "Location update received but location is null")
                     Toast.makeText(this@DashboardActivity, "Unable to get current location, please ensure GPS is enabled", Toast.LENGTH_LONG).show()
+                    pendingTasks--
+                    checkAllTasksComplete()
+
                 }
             }
         }
@@ -394,6 +420,20 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
         checkLocationPermission()
         fetchBlackspots() // Fetch blackspots on activity start
 
+    }
+
+    private fun showLoading() {
+        loadingProgress.visibility = View.VISIBLE // Use ProgressBar only
+    }
+
+    private fun hideLoading() {
+        loadingProgress.visibility = View.GONE
+    }
+
+    private fun checkAllTasksComplete() {
+        if (pendingTasks <= 0) {
+            hideLoading()
+        }
     }
 
     // Function to fetch the username from Firestore and display it
@@ -461,6 +501,8 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
             // Permission granted, get location
             getCurrentLocation()
         } else {
+
+            showLoading() // Show loading while requesting permission
             // Request permission
             if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_FINE_LOCATION) ||
                 ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_COARSE_LOCATION)) {
@@ -505,6 +547,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                 Log.w("DashboardActivity", "Location permissions denied")
                 Toast.makeText(this, "Location permissions denied", Toast.LENGTH_SHORT).show()
             }
+            hideLoading() // Hide after permission result
         }
     }
 
@@ -681,6 +724,10 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
     // Fetch weather from API
     // Update fetchWeatherData to store current weather
     private fun fetchWeatherData(latitude: Double, longitude: Double) {
+
+        //show loading while weather fetching
+        showLoading()
+        pendingTasks++ // Increment for weather task
         Log.d("DashboardActivity", "Fetching weather data for lat=$latitude, lon=$longitude")
         val call = weatherApiService.getCurrentWeather(latitude, longitude, "metric", openWeatherApiKey)
         call.enqueue(object : Callback<WeatherResponse> {
@@ -703,6 +750,7 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                         weatherText.text = "Weather: Unable to fetch"
                         currentWeather = "unknown"
                     }
+                    hideLoading()
                 } else {
                     val errorBody = response.errorBody()?.string() ?: "Unknown error"
                     Log.e("DashboardActivity", "Weather API error: ${response.code()}, errorBody=$errorBody")
@@ -711,6 +759,8 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                     Toast.makeText(this@DashboardActivity, "Weather API error: ${response.code()}. Error: $errorBody", Toast.LENGTH_SHORT).show()
                     currentWeather = "unknown"
                 }
+                pendingTasks-- // Decrement after weather fetch
+                checkAllTasksComplete()
             }
 
             override fun onFailure(call: Call<WeatherResponse>, t: Throwable) {
@@ -718,14 +768,22 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                 weatherText.text = "Weather: Network error"
                 Toast.makeText(this@DashboardActivity, "Weather fetch failed: ${t.message}", Toast.LENGTH_SHORT).show()
                 currentWeather = "unknown"
+                pendingTasks-- // Decrement after weather fetch
+                checkAllTasksComplete()
             }
         })
     }
 
     private fun fetchRoute(start: LatLng, end: LatLng, weatherDate: String) {
+
+        showLoading()
+        pendingTasks++ // Increment for route task
+
         if (!isMapReady || googleMap == null) {
             Log.e("DashboardActivity", "Cannot fetch route: Map not ready")
             Toast.makeText(this, "Map not ready, please try again", Toast.LENGTH_SHORT).show()
+            pendingTasks-- // Decrement if map not ready
+            checkAllTasksComplete()
             return
         }
 
@@ -811,18 +869,27 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                     Log.e("DashboardActivity", "Directions API raw response: ${response.raw()}")
                     Toast.makeText(this@DashboardActivity, "Directions API error: ${response.code()}. Error: $errorBody", Toast.LENGTH_LONG).show()
                 }
+                pendingTasks-- // Decrement after route fetch
+                checkAllTasksComplete()
             }
 
             override fun onFailure(call: Call<DirectionsResponse>, t: Throwable) {
                 Log.e("DashboardActivity", "Directions fetch failed: ${t.message}", t)
                 Toast.makeText(this@DashboardActivity, "Directions fetch failed: ${t.message}", Toast.LENGTH_SHORT).show()
+                pendingTasks-- // Decrement after route fetch
+                checkAllTasksComplete()
             }
         })
     }
 
     private fun fetchBlackspots() {
+        showLoading() //show loading before fetching the blackspots
+
+        pendingTasks++ // Increment for blackspots task
         if (!isMapReady || googleMap == null) {
             Log.w("DashboardActivity", "Cannot fetch blackspots: Map not ready")
+            //if map not ready we hide the loading
+            hideLoading()
             return
         }
 
@@ -848,10 +915,14 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                 blackspots = tempBlackspots
                 // Check proximity to blackspots if current location is available
                 currentLocation?.let { checkProximityViaBackend(it) }
+                pendingTasks-- // Decrement after blackspots fetch
+                checkAllTasksComplete()
             }
             .addOnFailureListener { e ->
                 Log.e("DashboardActivity", "Failed to fetch blackspots: ${e.message}", e)
                 Toast.makeText(this, "Failed to fetch blackspots: ${e.message}", Toast.LENGTH_SHORT).show()
+                pendingTasks-- // Decrement after blackspots fetch
+                checkAllTasksComplete()
             }
     }
 
@@ -860,9 +931,13 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
 
     // Update checkProximityViaBackend to use Snackbar with adjusted text size and 5-second auto-dismiss
     private fun checkProximityViaBackend(userLocation: LatLng) {
+        showLoading() // show loading sc while in proximity check
+        pendingTasks++ // Increment for proximity task
         Log.d("DashboardActivity", "Entered checkProximityViaBackend with isProximityNotificationsEnabled: $isProximityNotificationsEnabled, location: $userLocation")
         if (!isProximityNotificationsEnabled) {
             Log.d("DashboardActivity", "Proximity notifications are disabled, skipping backend proximity check")
+            pendingTasks-- // Decrement after blackspots fetch
+            checkAllTasksComplete()
             return
         }
 
@@ -969,6 +1044,8 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                             Handler(Looper.getMainLooper()).postDelayed({ makeRequest() }, 2000)
                         }
                     }
+                    pendingTasks-- // Decrement after response
+                    checkAllTasksComplete()
                 }
 
                 override fun onFailure(call: Call<CheckProximityResponse>, t: Throwable) {
@@ -980,6 +1057,8 @@ class DashboardActivity : AppCompatActivity(), OnMapReadyCallback {
                     if (attempt < retryCount) {
                         Handler(Looper.getMainLooper()).postDelayed({ makeRequest() }, 2000)
                     }
+                    pendingTasks-- // Decrement after response
+                    checkAllTasksComplete()
                 }
             })
         }

@@ -1,5 +1,6 @@
+import org.gradle.kotlin.dsl.annotationProcessor
 
-        plugins {
+plugins {
             alias(libs.plugins.android.application)
             alias(libs.plugins.kotlin.android)
             alias(libs.plugins.kotlin.compose)
@@ -87,6 +88,9 @@ dependencies {
 
     implementation ("com.google.android.material:material:1.9.0")
     implementation ("androidx.coordinatorlayout:coordinatorlayout:1.2.0")
+
+    implementation ("com.github.bumptech.glide:glide:4.16.0") // Latest version as of now
+    annotationProcessor ("com.github.bumptech.glide:compiler:4.16.0")
 
 }
 
